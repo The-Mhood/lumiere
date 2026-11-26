@@ -11,7 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "aggregate": "tsx --tsconfig tsconfig.json src/db/aggregate.ts",
-    "desktop:prepare": "npm run build && node scripts/prepare-desktop.mjs",
+    "desktop:prepare": "node scripts/build-desktop.mjs && node scripts/prepare-desktop.mjs",
     "desktop": "npm run desktop:prepare && electron .",
     "desktop:pack": "npm run desktop:prepare && electron-builder --dir",
     "desktop:mac": "npm run desktop:prepare && electron-builder --mac",
@@ -23,13 +23,11 @@
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
     "jose": "^6.2.18",
-    "next": "16.4.2",
+    "next": "^16.4.6",
     "pg": "8.20.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "shaka-player": "^5.3.6",
-    "tsx": "^4.23.15",
-    "vitest": "^5.1.2"
+    "shaka-player": "^5.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
@@ -42,10 +40,12 @@
     "electron": "^45.5.0",
     "electron-builder": "^26.18.0",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "^16.4.6",
     "postcss": "8.5.23",
     "tailwindcss": "4.1.17",
-    "typescript": "5.9.3"
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "^5.1.2"
   },
   "type": "module",
   "version": "1.0.0",
