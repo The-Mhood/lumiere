@@ -35,6 +35,21 @@ afterAll(async () => {
 });
 
 describe("catalogue", () => {
+  it("normalizes malformed paging instead of generating invalid SQL", async () => {
+    const result = await queryCatalogue({ page: Number.NaN, pageSize: Number.NaN });
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(24);
+  });
+  it("resolves matching sources through the provider API and rejects wrong episodes", async () => {
+    const { GET } = await import("@/app/api/titles/[slug]/sources/route");
+    const response = await GET(new Request("http://localhost/api/titles/sintel/sources"), { params: Promise.resolve({ slug: "sintel" }) });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.sources.length).toBeGreaterThan(0);
+    expect(data.reports.some((r: { status: string }) => r.status === "available")).toBe(true);
+    const wrong = await GET(new Request("http://localhost/api/titles/sintel/sources?episodeId=1"), { params: Promise.resolve({ slug: "sintel" }) });
+    expect(wrong.status).toBe(400);
+  });
   it("filters by kind, genre, year, country and sorts", async () => {
     const movies = await queryCatalogue({ kind: "movie", sort: "rating" });
     expect(movies.items.length).toBeGreaterThan(0);

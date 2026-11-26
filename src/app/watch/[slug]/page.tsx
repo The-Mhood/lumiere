@@ -83,6 +83,12 @@ export default async function WatchPage({
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <details className="mb-6 rounded-xl border border-white/10 p-4 text-sm text-mist">
+          <summary className="cursor-pointer">Source availability · {sources.length} playable source{sources.length === 1 ? "" : "s"}</summary>
+          <ul className="mt-3 space-y-1">
+            {resolution.reports.map((r) => <li key={r.provider}>{r.provider}: {r.status}{r.error ? ` — ${r.error}` : ""}</li>)}
+          </ul>
+        </details>
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <Link href={`/title/${title.slug}`} className="font-display text-3xl font-bold hover:text-ember">

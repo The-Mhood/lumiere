@@ -1,118 +1,64 @@
-# Lumière — premium, ad-free streaming platform
+# Lumière
 
-A production-style movie & series streaming application: content discovery, catalogue
-filtering, detail pages, a Shaka-powered adaptive player (HLS + DASH, up to 4K), multi-source
-switching with health-aware fallback, quality / subtitle / audio selection, authentication,
-watchlists, resume playback and viewing history.
+Next.js / React streaming catalogue with PostgreSQL + Drizzle, a Shaka HLS/DASH/MP4 player, and an Electron desktop shell. The existing application remains the foundation.
 
-> **Licensing.** The reference sites (cinejoy / movy / 7movies) host unlicensed content. Lumière
-> reproduces their *UX patterns* only. Every title in the seed catalogue is an openly licensed
-> Blender Foundation open movie (CC BY) and every stream is served by an authorized public demo
-> CDN. The provider layer enforces this: a source is never shown unless its provider is authorized
-> and its URL host is on that provider's allow-list.
+## Run locally
 
-## Stack (as implemented)
-
-| Layer | Choice | Notes |
-| --- | --- | --- |
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind v4 | Server components for data, client components for the player/nav |
-| Backend | Next.js route handlers (REST under `/api`) | Same contract can be ported to FastAPI; see "Architecture" |
-| Database | PostgreSQL + Drizzle ORM | Schema in `src/db/schema.ts`, push with `drizzle-kit` |
-| Cache | `src/lib/cache.ts` TTL cache with a Redis-shaped `get/set/del` API | Swap for ioredis via `REDIS_URL` |
-| Player | Shaka Player 5 | ABR, DASH + HLS, text/audio track APIs, progressive MP4 fallback |
-| Auth | bcryptjs + jose (HS256 JWT in httpOnly cookie) | `AUTH_SECRET` env var |
-| Tests | Vitest | Unit (streaming rules) + integration (DB, auth, watchlist, progress) |
-
-The brief requested FastAPI/SQLAlchemy; the sandbox provides a Next.js + Drizzle runtime, so the
-REST API lives in Next route handlers. The modules are separated so a Python service can replace
-them endpoint-for-endpoint (`/api/titles`, `/api/titles/:slug`, `/api/search`, `/api/auth/*`,
-`/api/watchlist`, `/api/progress`, `/api/sources/:id/health`).
-
-## Architecture
-
-```
-src/
-  db/schema.ts          titles, genres, people/credits, seasons, episodes,
-                        providers, sources, users, watchlist, watch_progress
-  db/seed.ts            open-licensed catalogue + authorized providers/sources
-  lib/streaming.ts      PURE source rules: format detection, host allow-list,
-                        authorization, health-aware ranking (unit tested)
-  lib/content.ts        catalogue queries, home rails, title detail, continue watching
-  lib/auth.ts           sessions, password hashing
-  lib/cache.ts          TTL cache (Redis contract)
-  app/api/**            REST handlers
-  components/player/    VideoPlayer (Shaka lifecycle, fallback, progress beacons)
-                        Controls (seek, volume, speed, PiP, fullscreen, menus, shortcuts)
+```sh
+npm ci
+npm run dev -- --hostname 0.0.0.0
 ```
 
-### Streaming-source model
-Each movie / episode has N `sources`, each belonging to a `provider`:
-provider name, playback URL, format (`hls | dash | mp4`), resolutions, audio & subtitle
-languages, external subtitle files, health status, priority.
+No external database is needed: PGlite (embedded PostgreSQL/WASM) stores data in `.lumiere-data/`. First boot transactionally populates an empty catalogue. Set `DATABASE_URL` to retain a conventional PostgreSQL deployment. See `.env.example` for configuration. Embedded PGlite must be owned by **one server process**, not a multi-process/shared-filesystem deployment; use PostgreSQL for that topology.
 
-`rankSources()` filters out unauthorized providers, URL/host mismatches, format mismatches and
-offline sources, then orders by health → provider priority → source priority → best resolution.
-The player walks this list: if a manifest fails to load or Shaka raises a critical error, the
-source is marked failed and playback moves to the next server automatically.
-`GET /api/sources/:id/health` probes a source server-side and persists `status` so demoted
-sources sink in the ranking for everyone. Adding a provider = one row in `providers` plus its
-sources; no application code changes.
+Home, movies, series, search, title details, watch, library and settings are available in the app navigation. Accounts enable watchlists and continue watching. Device playback preferences also work without an account.
 
-### Player
-* DASH/HLS via Shaka with ABR; MP4 via the native element with `<track>` subtitles.
-* Quality menu (Auto or pinned rendition, 4K/UHD badges), subtitle and audio menus built from
-  live track inventory, speed 0.5–2×, PiP, fullscreen, auto-hiding controls.
-* Keyboard: Space/K, ←/→ 5 s, J/L 10 s, ↑/↓ volume, M, F, P, C, `<`/`>` speed, 0–9 jump, Shift+N next.
-* Progress beacons every 5 s + on pause/unload; resume offered on return; ≥95 % marks complete.
-* Subtitle preference persisted to the user profile and applied as Shaka `preferredTextLanguage`.
+## Verification
 
-## Running
-
-```bash
-cp .env.example .env            # DATABASE_URL, AUTH_SECRET
-npm install
-npx drizzle-kit push            # create tables
-npx tsx src/db/seed.ts          # seed catalogue
-npm run dev                     # http://localhost:3000
+```sh
+npm test                  # isolated in-memory DB; no network required
+npm run typecheck
+npm run lint
+npm run desktop:prepare   # production build with isolated build-worker DBs
 ```
 
-### Tests
-```bash
-npx vitest run                  # requires DATABASE_URL (integration tests hit the DB)
+The integration suite covers catalogue, auth, watchlist, progress and a mocked aggregator import. Resolver tests exercise timeout, retry, error isolation, normalization and fallback. These are **not** proof of successful live Internet video playback.
+
+## Desktop builds
+
+On the target OS:
+
+```sh
+npm run desktop       # build and launch Electron locally
+npm run desktop:mac   # macOS DMG + ZIP
+npm run desktop:win   # Windows NSIS installer
 ```
 
-### Deployment
-* Build: `npm run build` → `npm start` (Node 20+). Set `DATABASE_URL`, `AUTH_SECRET`, optional `REDIS_URL`.
-* Docker: `node:20-alpine`, `npm ci && npm run build`, `CMD ["npm","start"]`; run `drizzle-kit push`
-  (or `drizzle-kit generate` + `migrate` for versioned migrations) as a release step.
-* Put the app behind a CDN; video is already CDN-delivered by the providers. For self-hosted
-  licensed content: transcode with FFmpeg to CMAF (HLS + DASH ladders up to 2160p), upload to
-  object storage, register a `provider` whose `allowedHosts` is your CDN hostname.
+Output is in `release/` (ignored by Git). `.github/workflows/desktop.yml` builds on native macOS and Windows runners, launches each packaged executable, checks search/details/settings/restart, and uploads available installers. Workflow failures are release blockers, even when installer artifacts exist.
 
-## Verified in this build
-* 9 automated tests passing (format validation, host allow-list incl. wildcards, authorization,
-  ranking; catalogue filters/sort/search; unauthorized provider hidden; series/episodes/sources;
-  registration validation; login success/failure; watchlist add/remove; progress upsert & completion).
-* HTTP smoke test: all pages 200, source health probes report `online`, register → progress →
-  library → "Continue watching" rail populated.
+The shell runs the bundled standalone Next server using Electron's utility process; users need neither Node nor a development server. It binds only to loopback, uses a stable per-install port for storage persistence, generates a private installation auth secret, stores the embedded DB under Electron's OS user-data directory, blocks new windows and off-origin top-level navigation, and stops the server on quit. Server diagnostics are in `server.log` in that directory. Window dimensions and maximization persist. Native and media fullscreen use the application display bounds.
 
-## Multi-platform aggregation
+Installers are currently **unsigned** unless signing credentials are configured by the release team. Configure Apple Developer signing/notarization and Windows signing before public distribution. There is no automatic update service: install a newer version over the old version; application identity and user-data paths stay stable. Do not ship a database or `.env` file with an installer.
 
-Lumière aggregates content from other platforms through **adapters** (`src/lib/aggregators/`):
+After building a native package, run `node scripts/desktop-smoke.mjs`. Manual release gates still include live MP4/HLS/DASH playback, subtitles/audio/quality, media fullscreen, real provider failure, episode playback/progression, signed installation and upgrade on both platforms.
 
-| Adapter | What it does | Needs |
-| --- | --- | --- |
-| `internet-archive` | Imports full-length public-domain / CC feature films (metadata, poster, MP4 renditions, licence) as playable titles with an `archive-org` provider | nothing |
-| `tmdb` | Enriches titles with legal **"Where to watch"** availability (Netflix, Prime Video, Apple TV, Disney+, YouTube… via TMDB/JustWatch) with deep links to the platform | `TMDB_API_KEY` |
+## Source engine
 
-* Run: `npm run aggregate -- internet-archive 40` or `POST /api/aggregate/sync?adapter=internet-archive&limit=40`
-  (protect with `AGGREGATOR_TOKEN`). Schedule it with cron / a worker for continuous aggregation.
-* Dashboard: `/aggregators` — adapter status, per-run import/update/skip counts, platforms indexed, Sync button.
-* Imports are idempotent (`titles.external_source + external_id`), sources are validated against the
-  provider allow-list before insert, and availability is upserted per (title, platform, kind, region).
-* UI: "Public-domain classics" rail on the homepage, **Platform** filter in the catalogue,
-  "Where to watch" section on every detail page.
+- `src/lib/streaming.ts`: normalized formats, subtitle schema, authorization, host rules, health-aware ranking.
+- `src/lib/streaming/resolver.ts`: independent adapter contract (`search` / title matching / `resolve`), parallel provider isolation, bounded deadlines, retry, health reports, prioritized sources.
+- `src/lib/streaming/providers.ts`: separate configured-CDN catalogue adapters. Only stable public playback URLs are stored; adapters for expiring URLs must resolve them on demand.
+- `GET /api/titles/:slug/sources?episodeId=...`: normalized sources and explicit provider reports.
+- `GET /api/sources/:id/health`: bounded host-validated probe, body cancellation, short health cache. Old failures can be retried.
+- `src/lib/aggregators/`: Internet Archive catalogue adapter and optional TMDB metadata/availability adapter. TMDB metadata/where-to-watch is **not** a playback provider. Configure its key before use.
 
-**Why not scrape pirate embed hosts like the reference sites?** They redistribute copyrighted films
-without licences. Lumière's aggregator only ingests platforms that are authorized to serve the content,
-and for everything else it *points users to* the legal platform instead of re-hosting it.
+The player handles source selection, bounded startup, fallback, retry, resume position, external/embedded subtitles and adaptive audio/quality controls. Settings select preferred tracks and next-episode autoplay. Availability of tracks and quality depends on the actual stream.
+
+### Catalogue correctness / outstanding content work
+
+The earlier seed attached unrelated demo films/trailers to several titles and every Caminandes episode. Those mappings are now rejected, including on an existing database. Big Buck Bunny, Sintel, Tears of Steel and Elephants Dream retain matching public-CDN catalogue mappings; live endpoint availability must still be verified on a network that can reach those hosts. Other curated titles/episodes remain browsable but correctly report playback unavailable until matching sources are integrated. The seed's existing metadata also requires editorial verification. Bundled covers are original typographic artwork, not official film posters.
+
+A manually destructive catalogue reset requires `npm run db:seed -- --reset` and cascades into watch history/watchlists. Normal application startup never resets an existing catalogue. Schema bootstrap is idempotent, additive DDL matching `src/db/schema.ts`; future alterations require explicit versioned migrations.
+
+## Delivery status
+
+This branch contains implemented and locally tested app/desktop infrastructure, not a certified production release. Consult the native workflow results and complete the live-media/manual platform gates above before release. Do not represent unavailable catalogue mappings, unsigned builds, or unexecuted playback tests as completed features.

@@ -35,10 +35,13 @@ class CatalogueProvider implements ProviderAdapter {
   }
 }
 let resolver: SourceResolver | undefined;
+let signature = "";
 export async function getResolver() {
-  if (!resolver) {
-    const configured = await db.select().from(providers).where(eq(providers.authorized, true));
+  const configured = await db.select().from(providers).where(eq(providers.authorized, true));
+  const current = JSON.stringify(configured.map((p) => [p.slug, p.priority, p.allowedHosts]));
+  if (!resolver || signature !== current) {
     resolver = new SourceResolver(configured.map((p) => new CatalogueProvider(p.slug, p.priority)));
+    signature = current;
   }
   return resolver;
 }
