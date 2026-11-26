@@ -68,7 +68,7 @@ export default async function AggregatorsPage() {
           </table>
         </div>
       </section>
-      <p className="mt-8 text-sm text-mist">Imported films appear in <Link href="/movies?platform=internet-archive" className="text-ember">Movies → Platform</Link> and on the homepage.</p>
+      <p className="mt-8 text-sm text-mist">Imported catalogue titles appear in <Link href="/movies?platform=owned-sites" className="text-ember">Movies → Owned sites</Link> and on the homepage.</p>
     </div>
   );
 }
