@@ -1,23 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { desc, ilike, or } from "drizzle-orm";
+import { db } from "@/db";
+import { titles } from "@/db/schema";
 
-// Import Python backend modules (if using subprocess)
-import aiohttp from "aiohttp";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const searchParams = new URLSearchParams(request.nextUrl.searchParams);
-  const query = searchParams.get("q") || "";
-  
-  // Call Python backend or scrape directly
-  const session = new aiohttp.ClientSession();
-  const scraper = new CinejoyScraper(session);
-  
+  const query = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+
+  if (!query) {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
   try {
-    const movieData = await scraper.fetch_movie(query);
-    return NextResponse.json({
-      success: true,
-      data: movieData,
-    });
-  } finally {
-    await session.close();
+    const matches = await db
+      .select()
+      .from(titles)
+      .where(or(ilike(titles.name, `%${query}%`), ilike(titles.originalName, `%${query}%`)))
+      .orderBy(desc(titles.popularity), desc(titles.year))
+      .limit(30);
+
+    return NextResponse.json({ success: true, data: matches });
+  } catch (error) {
+    console.error("Catalogue search failed:", error);
+    return NextResponse.json(
+      { success: false, error: "Catalogue search is temporarily unavailable." },
+      { status: 500 },
+    );
   }
 }

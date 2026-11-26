@@ -335,7 +335,6 @@ export function VideoPlayer(props: VideoPlayerProps) {
         poster={props.poster ?? undefined}
         playsInline
         preload="metadata"
-        crossOrigin="anonymous"
         onClick={() => {
           const v = videoRef.current;
           if (v) v.paused ? v.play() : v.pause();

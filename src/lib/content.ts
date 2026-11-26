@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, ne, or, sql, SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, ne, or, sql, SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   availability,
@@ -114,8 +114,33 @@ export async function queryCatalogue(q: CatalogueQuery) {
 
 export async function homeRails() {
   return cached("home", 60, async () => {
+    const getFeatured = async () => {
+      // Prefer current TMDB trending movie records with both poster and backdrop.
+      // This prevents a stale curated/demo record from occupying the homepage hero.
+      const current = await db
+        .select()
+        .from(titles)
+        .where(and(
+          eq(titles.kind, "movie"),
+          eq(titles.externalSource, "tmdb"),
+          isNotNull(titles.posterUrl),
+          isNotNull(titles.backdropUrl),
+        ))
+        .orderBy(desc(titles.popularity), desc(titles.voteCount))
+        .limit(5);
+      if (current.length) return current;
+
+      // Fallback to any fully-artworked movie if TMDB has not been synced yet.
+      return db
+        .select()
+        .from(titles)
+        .where(and(eq(titles.kind, "movie"), isNotNull(titles.posterUrl), isNotNull(titles.backdropUrl)))
+        .orderBy(desc(titles.popularity), desc(titles.voteCount))
+        .limit(5);
+    };
+
     const [featured, trending, popular, recent, series, topRated] = await Promise.all([
-      db.select().from(titles).where(eq(titles.featured, true)).orderBy(desc(titles.popularity)).limit(5),
+      getFeatured(),
       db.select(cardColumns).from(titles).orderBy(desc(titles.popularity)).limit(12),
       db.select(cardColumns).from(titles).where(eq(titles.kind, "movie")).orderBy(desc(titles.voteCount)).limit(12),
       db.select(cardColumns).from(titles).orderBy(desc(titles.createdAt), desc(titles.id)).limit(12),
