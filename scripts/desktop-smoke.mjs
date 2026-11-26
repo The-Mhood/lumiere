@@ -1,4 +1,4 @@
-import { _electron as electron } from '@playwright/test';
+import { _electron as electron, expect } from '@playwright/test';
 import { readdir, mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -11,6 +11,7 @@ let app;
 async function launch() {
   app = await electron.launch({ executablePath: exe, args: [`--user-data-dir=${profile}`], timeout: 90000 });
   const page = await app.firstWindow({ timeout: 90000 });
+  await page.waitForURL(/^http:\/\/127\.0\.0\.1:/, { timeout: 90000 });
   await page.waitForLoadState('domcontentloaded');
   return page;
 }
@@ -35,7 +36,7 @@ try {
   await app.close(); app = undefined;
   page = await launch();
   await page.goto(`${new URL(page.url()).origin}/settings`);
-  assert.equal(await page.getByRole('checkbox').isChecked(), false, 'settings survive restart');
+  await expect(page.getByRole('checkbox')).not.toBeChecked();
   console.log('PASS: packaged startup, search, details, settings, fullscreen request, restart.');
   console.log('Live playback/subtitle/media-fullscreen validation remains a manual release gate.');
 } finally { if (app) await app.close(); await rm(profile, { recursive: true, force: true }); }

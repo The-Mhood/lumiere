@@ -14,7 +14,13 @@ export async function PATCH(req: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
-  const preferences = { ...user.preferences, ...(body?.preferences ?? {}) };
+  const input = body?.preferences ?? {};
+  const patch: { audioLang?: string; subtitleLang?: string; autoplay?: boolean } = {};
+  for (const key of ["audioLang", "subtitleLang"] as const) {
+    if (typeof input[key] === "string" && /^(?:[a-z]{2,3}(?:-[A-Za-z]{2,4})?)?$/.test(input[key])) patch[key] = input[key];
+  }
+  if (typeof input.autoplay === "boolean") patch.autoplay = input.autoplay;
+  const preferences = { ...user.preferences, ...patch };
   await db.update(users).set({ preferences }).where(eq(users.id, user.id));
   return Response.json({ preferences });
 }

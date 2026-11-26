@@ -70,8 +70,8 @@ export async function listYears() {
 }
 
 export async function queryCatalogue(q: CatalogueQuery) {
-  const page = Math.max(1, q.page ?? 1);
-  const pageSize = Math.min(48, Math.max(1, q.pageSize ?? 24));
+  const page = Number.isFinite(q.page) ? Math.min(100000, Math.max(1, Math.floor(q.page!))) : 1;
+  const pageSize = Number.isFinite(q.pageSize) ? Math.min(48, Math.max(1, Math.floor(q.pageSize!))) : 24;
   const where: SQL[] = [];
 
   if (q.kind) where.push(eq(titles.kind, q.kind));
@@ -96,7 +96,7 @@ export async function queryCatalogue(q: CatalogueQuery) {
     newest: [desc(titles.createdAt)],
     year: [desc(titles.year), desc(titles.popularity)],
     title: [asc(titles.name)],
-  }[q.sort ?? "popular"];
+  }[q.sort ?? "popular"] ?? [desc(titles.popularity)];
 
   const cond = where.length ? and(...where) : undefined;
   const [items, [{ count }]] = await Promise.all([
