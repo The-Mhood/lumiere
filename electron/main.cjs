@@ -7,6 +7,7 @@ let server;
 let window;
 let origin;
 let quitting = false;
+if (process.env.LUMIERE_USER_DATA_DIR) app.setPath('userData', process.env.LUMIERE_USER_DATA_DIR);
 const dataPath = app.getPath('userData');
 const settingsPath = path.join(dataPath, 'window.json');
 function settings() { try { return JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch { return {}; } }

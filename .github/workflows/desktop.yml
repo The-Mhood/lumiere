@@ -42,13 +42,14 @@ jobs:
         run: |
           set -o pipefail
           if [ "${{ matrix.target }}" = "mac" ]; then
-            npx electron-builder --mac --config.mac.identity=- --publish never 2>&1 | tee native-package.log
+            npx electron-builder --mac --config.mac.identity=- --config.mac.hardenedRuntime=false --publish never 2>&1 | tee native-package.log
           else
             npx electron-builder --win --publish never 2>&1 | tee native-package.log
           fi
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Launch packaged application
+        timeout-minutes: 4
         shell: bash
         run: |
           set -o pipefail

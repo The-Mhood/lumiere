@@ -88,7 +88,7 @@ export function Navbar({ user }: { user: NavUser }) {
           Lumière
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-1 xl:flex" aria-label="Primary">
           {LINKS.map((l) => (
             <Link
               key={l.href}
@@ -145,7 +145,7 @@ export function Navbar({ user }: { user: NavUser }) {
           )}
         </form>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 xl:flex">
           {user ? (
             <>
               <Link href="/library" className="rounded-full px-3 py-1.5 text-sm text-mist hover:text-snow">
@@ -170,7 +170,7 @@ export function Navbar({ user }: { user: NavUser }) {
         </div>
 
         <button
-          className="ml-auto rounded-lg p-2 hover:bg-white/5 md:hidden"
+          className="ml-auto rounded-lg p-2 hover:bg-white/5 xl:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label="Toggle menu"
@@ -182,7 +182,7 @@ export function Navbar({ user }: { user: NavUser }) {
       </div>
 
       {open && (
-        <div className="border-t border-white/5 bg-ink-800 px-4 py-4 md:hidden">
+        <div className="border-t border-white/5 bg-ink-800 px-4 py-4 xl:hidden">
           <form
             role="search"
             onSubmit={(e) => {

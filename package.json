@@ -80,7 +80,9 @@
         "zip"
       ],
       "hardenedRuntime": true,
-      "icon": "electron/assets/icon.png"
+      "icon": "electron/assets/icon.png",
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist"
     },
     "win": {
       "target": [

@@ -1,5 +1,5 @@
 import { _electron as electron, expect } from '@playwright/test';
-import { readdir, mkdtemp, rm } from 'node:fs/promises';
+import { readdir, mkdtemp, rm, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
@@ -9,7 +9,7 @@ const exe = process.platform === 'win32' ? path.resolve('release/win-unpacked/Lu
 const profile = await mkdtemp(path.join(os.tmpdir(), 'lumiere-smoke-'));
 let app;
 async function launch() {
-  app = await electron.launch({ executablePath: exe, args: [`--user-data-dir=${profile}`], timeout: 90000 });
+  app = await electron.launch({ executablePath: exe, args: [`--user-data-dir=${profile}`], env: { ...process.env, LUMIERE_USER_DATA_DIR: profile }, timeout: 90000 });
   const page = await app.firstWindow({ timeout: 90000 });
   await page.waitForURL(/^http:\/\/127\.0\.0\.1:/, { timeout: 90000 });
   await page.waitForLoadState('domcontentloaded');
@@ -39,4 +39,7 @@ try {
   await expect(page.getByRole('checkbox')).not.toBeChecked();
   console.log('PASS: packaged startup, search, details, settings, fullscreen request, restart.');
   console.log('Live playback/subtitle/media-fullscreen validation remains a manual release gate.');
+} catch (error) {
+  try { console.error('Bundled server diagnostics:', await readFile(path.join(profile, 'server.log'), 'utf8')); } catch {}
+  throw error;
 } finally { if (app) await app.close(); await rm(profile, { recursive: true, force: true }); }
