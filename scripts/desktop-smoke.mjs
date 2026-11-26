@@ -1,5 +1,5 @@
 import { chromium, expect } from '@playwright/test';
-import { readdir, mkdtemp, rm, readFile } from 'node:fs/promises';
+import { readdir, mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import path from 'node:path';
@@ -25,7 +25,7 @@ async function closeApp() {
   if (browser) {
     // CDP is used only for the test. It avoids injecting a Node inspector into
     // a signed Electron main process (which can crash on macOS ARM).
-    process.stdin.write('quit\n');
+    await writeFile(path.join(profile, 'smoke-quit'), 'quit');
     await browser.close().catch(() => {}); browser = undefined;
   }
   let timer;

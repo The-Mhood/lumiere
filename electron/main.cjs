@@ -14,7 +14,12 @@ fs.mkdirSync(dataPath, { recursive: true });
 function diagnostic(message) { fs.appendFileSync(path.join(dataPath, 'desktop.log'), `${new Date().toISOString()} ${message}\n`); }
 diagnostic('Main process started');
 // Trusted parent-process smoke control; never exposed to renderer content.
-if (process.env.LUMIERE_SMOKE_TEST === '1') process.stdin.on('data', (data) => { if (String(data).trim() === 'quit') app.quit(); });
+if (process.env.LUMIERE_SMOKE_TEST === '1') {
+  const quitFile = path.join(dataPath, 'smoke-quit');
+  fs.watchFile(quitFile, { interval: 200 }, (stat) => {
+    if (stat.size) { fs.unwatchFile(quitFile); fs.unlinkSync(quitFile); diagnostic('Smoke requested graceful quit'); app.quit(); }
+  });
+}
 process.on('uncaughtException', (error) => { diagnostic(error.stack || String(error)); app.exit(1); });
 function settings() { try { return JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch { return {}; } }
 function saveWindow() {
@@ -104,6 +109,6 @@ else {
     try { await startServer(); diagnostic('Server ready'); openWindow(); } catch (e) { diagnostic(`Startup failed: ${e.stack || e.message}`); dialog.showErrorBox('Lumière startup failed', e.message); app.quit(); }
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0 && origin) openWindow(); });
   });
-  app.on('before-quit', () => { quitting = true; server?.kill(); });
+  app.on('before-quit', () => { diagnostic('Application quitting'); quitting = true; session.defaultSession.flushStorageData(); server?.kill(); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }
