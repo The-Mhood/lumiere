@@ -11,8 +11,8 @@ export default async function AggregatorsPage() {
     <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-6">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Content aggregators</h1>
       <p className="mt-2 max-w-2xl text-mist">
-        Lumière pulls catalogues and cross-platform availability from legitimate platforms through pluggable adapters.
-        Every imported stream is validated against the provider&apos;s host allow-list before it can be played.
+        Lumière imports catalogue metadata and poster references from your configured catalogue sites.
+        Playable sources remain a separate, rights-checked pipeline.
       </p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
