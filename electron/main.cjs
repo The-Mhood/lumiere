@@ -68,13 +68,19 @@ function openWindow() {
   const s = settings();
   window = new BrowserWindow({ width: s.width || 1440, height: s.height || 900, minWidth: 800, minHeight: 600,
     backgroundColor: '#07080c', title: 'Lumière', show: false,
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true },
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false },
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   window.webContents.on('will-redirect', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   window.on('close', saveWindow);
-  window.once('ready-to-show', () => { if (s.maximized) window.maximize(); window.show(); });
+  window.once('ready-to-show', () => {
+    if (s.maximized) window.maximize();
+    window.show();
+    if (process.platform === 'darwin') app.focus({ steal: true });
+    window.focus();
+    diagnostic('Window shown');
+  });
   window.loadURL(origin).catch((e) => dialog.showErrorBox('Lumière could not open', e.message));
 }
 // A filesystem lock also protects the embedded DB when a second executable
