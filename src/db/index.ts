@@ -46,11 +46,15 @@ if (databaseUrl) {
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle: drizzlePglite } = await import("drizzle-orm/pglite");
   const dataDir = process.env.LUMIERE_DATA_DIR ?? "./.lumiere-data";
-  const client = await PGlite.create(
-    dataDir && dataDir !== "memory" ? { dataDir } : undefined,
-  );
+  // Next can evaluate the DB module in more than one route bundle. PGlite is
+  // single-owner: all bundles in this Node process must share one WASM client.
+  const shared = globalThis as typeof globalThis & {
+    __lumiereEmbedded?: Promise<import("@electric-sql/pglite").PGlite>;
+  };
+  shared.__lumiereEmbedded ??= PGlite.create(dataDir !== "memory" ? { dataDir } : undefined);
+  const client = await shared.__lumiereEmbedded;
   _db = drizzlePglite(client, { schema }) as unknown as LumiereDb;
-  _close = () => client.close();
+  _close = async () => { await client.close(); delete shared.__lumiereEmbedded; };
 }
 
 export const db: LumiereDb = _db;
