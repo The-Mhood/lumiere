@@ -48,9 +48,19 @@ describe('official Blender provider', () => {
     expect(await provider.resolve(title, new AbortController().signal)).toHaveLength(1);
     expect(fetch).toHaveBeenCalledTimes(3);
   });
+  it('keeps all nine films resolvable during a metadata outage', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Network unavailable'); }));
+    for (const [slug, film] of Object.entries(BLENDER_FILMS)) {
+      const sources = rankSources(await new BlenderProvider().resolve({ slug, name: film.name, year: film.year, kind: 'movie' }, new AbortController().signal));
+      expect(sources.length, slug).toBeGreaterThan(0);
+      expect(sources.every((s) => s.url.startsWith('https://video.blender.org/object-storage/web_videos/'))).toBe(true);
+    }
+  });
   it('returns clear HTTP and changed-identity failures', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
-    await expect(new BlenderProvider().resolve(title, new AbortController().signal)).rejects.toThrow('HTTP 503');
+    const fallback = await new BlenderProvider().resolve(title, new AbortController().signal);
+    expect(fallback.length).toBeGreaterThan(0);
+    expect(fallback[0].label).toContain('verified backup');
     vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(url.includes('/video-channels/') ? { total: 1, data: [movie] } : { ...movie, uuid: 'wrong' })));
     await expect(new BlenderProvider().resolve(title, new AbortController().signal)).rejects.toThrow('identity changed');
   });

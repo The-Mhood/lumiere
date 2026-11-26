@@ -1,3 +1,4 @@
+import verified from "./blender-verified.json";
 import { detectFormat, hostAllowed, type SourceRecord, type SubtitleTrack } from "../streaming";
 import { cache } from "../cache";
 import type { ProviderAdapter, TitleMatch } from "./resolver";
@@ -70,11 +71,12 @@ export function normalizeBlenderVideo(video: Video, captions: Caption[] = []): S
   }
   return items;
 }
+class IdentityError extends Error {}
 export class BlenderProvider implements ProviderAdapter {
   readonly id = "blender-official";
   readonly priority = 5;
   private async json<T>(path: string, signal: AbortSignal): Promise<T> {
-    const response = await fetch(`${BASE}${path}`, { signal, redirect: "error", headers: { Accept: "application/json" }, cache: "no-store" });
+    const response = await fetch(`${BASE}${path}`, { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]), redirect: "error", headers: { Accept: "application/json" }, cache: "no-store" });
     if (!response.ok) throw new Error(`Blender API HTTP ${response.status}`);
     return response.json() as Promise<T>;
   }
@@ -103,6 +105,7 @@ export class BlenderProvider implements ProviderAdapter {
     const key = `blender:sources:${title.slug}:${title.year}:${title.episodeName ?? "movie"}`;
     const hit = cache.get<SourceRecord[]>(key);
     if (hit) return hit;
+    try {
     const candidates = (await this.catalogue(signal)).filter((v) => matchesBlenderVideo(title, v));
     if (!candidates.length) return [];
     // The official channel carries both original and remastered editions.
@@ -110,7 +113,7 @@ export class BlenderProvider implements ProviderAdapter {
     // ambiguous third-party title search result.
     const editions = await Promise.all(candidates.slice(0, 3).map(async (candidate) => {
       const video = await this.json<Video>(`/api/v1/videos/${encodeURIComponent(candidate.uuid)}`, signal);
-      if (!matchesBlenderVideo(title, video) || video.uuid !== candidate.uuid) throw new Error("Official video identity changed");
+      if (!matchesBlenderVideo(title, video) || video.uuid !== candidate.uuid) throw new IdentityError("Official video identity changed");
       let captions: Caption[] = [];
       try { captions = (await this.json<{ data: Caption[] }>(`/api/v1/videos/${encodeURIComponent(video.uuid)}/captions`, signal)).data; }
       catch { signal.throwIfAborted(); /* Optional captions must not disable video. */ }
@@ -119,5 +122,18 @@ export class BlenderProvider implements ProviderAdapter {
     const records = editions.flat();
     if (records.length) cache.set(key, records, 300);
     return records;
+    } catch (error) {
+      signal.throwIfAborted();
+      if (error instanceof IdentityError) throw error;
+      // Public UUID-based media files are stable, not signed stream tokens.
+      // Keep movies playable when the metadata service has a transient outage.
+      const film = BLENDER_FILMS[title.slug];
+      const urls = verified.films[title.slug as keyof typeof verified.films];
+      if (title.kind !== "movie" || !film || film.year !== title.year || !urls?.length) throw error;
+      const backup = normalizeBlenderVideo({ uuid: `verified-${title.slug}`, name: title.name, duration: 0,
+        files: urls.map((fileUrl) => { const height = Number(fileUrl.match(/-(\d+)\.mp4$/)?.[1] ?? 0); return { fileUrl, resolution: { id: height, label: height ? `${height}p` : "auto" } }; }),
+      });
+      return backup.map((source) => ({ ...source, label: `${source.label} · verified backup (metadata unavailable)` }));
+    }
   }
 }
