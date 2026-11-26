@@ -48,7 +48,8 @@ After building a native package, run `node scripts/desktop-smoke.mjs`. Manual re
 
 - `src/lib/streaming.ts`: normalized formats, subtitle schema, authorization, host rules, health-aware ranking.
 - `src/lib/streaming/resolver.ts`: independent adapter contract (`search` / title matching / `resolve`), parallel provider isolation, bounded deadlines, retry, health reports, prioritized sources.
-- `src/lib/streaming/providers.ts`: separate configured-CDN catalogue adapters. Only stable public playback URLs are stored; adapters for expiring URLs must resolve them on demand.
+- `src/lib/streaming/blender.ts`: official full-film metadata, HLS/MP4 and VTT resolution for all nine curated movies; identity and host checks; verified-file outage fallback.
+- `src/lib/streaming/providers.ts`: official provider plus separate configured-CDN catalogue adapters. Only stable public playback URLs are stored; adapters for expiring URLs must resolve them on demand.
 - `GET /api/titles/:slug/sources?episodeId=...`: normalized sources and explicit provider reports.
 - `GET /api/sources/:id/health`: bounded host-validated probe, body cancellation, short health cache. Old failures can be retried.
 - `src/lib/aggregators/`: Internet Archive catalogue adapter and optional TMDB metadata/availability adapter. TMDB metadata/where-to-watch is **not** a playback provider. Configure its key before use.
@@ -57,7 +58,7 @@ The player handles source selection, bounded startup, fallback, retry, resume po
 
 ### Catalogue correctness / outstanding content work
 
-The earlier seed attached unrelated demo films/trailers to several titles and every Caminandes episode. Those mappings are now rejected, including on an existing database. Big Buck Bunny, Sintel, Tears of Steel and Elephants Dream retain matching public-CDN catalogue mappings; live endpoint availability must still be verified on a network that can reach those hosts. Other curated titles/episodes remain browsable but correctly report playback unavailable until matching sources are integrated. The seed's existing metadata also requires editorial verification. Bundled covers are original typographic artwork, not official film posters.
+The earlier seed attached unrelated demo films/trailers to several titles and every Caminandes episode. Those mappings are rejected, including on existing databases. **All nine curated movies now resolve through the official Blender Open Movies API**, with verified public-file backups for metadata outages. Live video requests and packaged Windows playback have passed for every movie; see `DELIVERY.md` for the verification runs and updated installer. The adapter matches real Caminandes episode names, but episode playback/coverage is not yet verified and the fabricated second-season fixtures remain unavailable. The seed's existing metadata also requires editorial verification. Bundled covers are original typographic artwork, not official film posters.
 
 A manually destructive catalogue reset requires `npm run db:seed -- --reset` and cascades into watch history/watchlists. Normal application startup never resets an existing catalogue. Schema bootstrap is idempotent, additive DDL matching `src/db/schema.ts`; future alterations require explicit versioned migrations.
 

@@ -1,6 +1,23 @@
 # Lumière implementation delivery — 2026-11-26
 
-## Verified checkpoint
+## Current source-completion update
+
+All **nine movies currently in the curated catalogue** now have matching official Blender sources: Big Buck Bunny, Sintel, Tears of Steel, Elephants Dream, Cosmos Laundromat, Spring, Agent 327: Operation Barbershop, Sprite Fright, and Charge. This is not a claim to cover every movie outside the catalogue.
+
+- Implementation checkpoint: `b67bb5a`.
+- **Windows full-catalogue playback: PASS.** All nine movies started in the packaged desktop player. Primary-source failure/fallback, pause, seek, media fullscreen, device settings and restart also passed.
+- Updated Windows installer: https://github.com/The-Mhood/lumiere/actions/runs/45900152114/artifacts/15156335102
+- Native verification run: https://github.com/The-Mhood/lumiere/actions/runs/45900152114 (Windows job succeeded; macOS has a separate unresolved launch blocker).
+- **Live source coverage: PASS**, including ranged video requests for every movie: https://github.com/The-Mhood/lumiere/actions/runs/45900152027
+- Local build, lint, type checking and **28 tests pass**. All nine also return official sources through the standalone title-detail API when the metadata network is unavailable.
+
+`src/lib/streaming/blender.ts` resolves official-channel metadata on demand, checks title/year identity and full-film duration, rejects trailers/documentaries and untrusted media/caption hosts, supports official remastered editions, and normalizes public HLS/MP4/VTT. URLs are not written to the catalogue DB. `blender-verified.json` contains only stable public MP4 file URLs, with verification provenance, for metadata-outage fallback; these are not signed or expiring stream tokens.
+
+Title details, detail API and watch pages now expose the same resolver output. Real Caminandes episode names are supported by the adapter, but episode coverage is **not** part of the all-movie pass above; the pre-existing fabricated second-season fixtures are still unavailable rather than mapped to unrelated films.
+
+The earlier missing-movie-source blocker below is superseded for these nine movies. macOS startup, full subtitle/audio/quality coverage, real episode playback and public-release signing/installation validation remain open.
+
+## Earlier verified checkpoint (historical)
 
 Application source: `9cc202a` on `arena/e423f162-lumiere` (later documentation-only commits do not change these binaries).
 
