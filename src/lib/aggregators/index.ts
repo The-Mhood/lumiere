@@ -5,9 +5,10 @@ import { cache } from "../cache";
 import { detectFormat, hostAllowed } from "../streaming";
 import { internetArchiveAdapter } from "./internet-archive";
 import { tmdbAdapter } from "./tmdb";
+import { ownedSitesAdapter } from "./owned-sites";
 import type { AggregatedAvailability, AggregatedTitle, AggregatorAdapter } from "./types";
 
-export const ADAPTERS: AggregatorAdapter[] = [internetArchiveAdapter, tmdbAdapter];
+export const ADAPTERS: AggregatorAdapter[] = [ownedSitesAdapter, internetArchiveAdapter, tmdbAdapter];
 
 export function getAdapter(key: string) {
   return ADAPTERS.find((a) => a.key === key) ?? null;
@@ -82,7 +83,7 @@ async function upsertTitle(
     const p = providerMap.get(s.providerSlug);
     return p && p.authorized && hostAllowed(s.url, p.allowedHosts) && detectFormat(s.url) === s.format;
   });
-  if (!validSources.length && !t.availability.length) return "skipped";
+  // Catalogue metadata is useful on its own. A title must not be discarded\n  // merely because it has no playable source or provider availability yet.
 
   const [existing] = await db
     .select({ id: titles.id })
