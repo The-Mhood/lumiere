@@ -60,28 +60,38 @@ async function launch() {
   return page;
 }
 try {
+  console.log('Launching packaged executable');
   let page = await launch();
   const origin = new URL(page.url()).origin;
+  console.log('Checking search');
   await page.goto(`${origin}/search?q=sintel`);
   await page.getByText('Sintel', { exact: true }).first().waitFor();
+  console.log('Checking title pages');
   await page.goto(`${origin}/title/sintel`);
   await page.getByRole('heading', { name: 'Sintel', exact: true }).waitFor();
   await page.goto(`${origin}/title/caminandes`);
   await page.getByRole('heading', { name: 'Caminandes', exact: true }).waitFor();
+  console.log('Checking device settings');
   await page.goto(`${origin}/settings`);
   await page.getByRole('checkbox').uncheck();
   await page.getByRole('button', { name: 'Save preferences' }).click();
   await page.getByRole('status').filter({ hasText: 'Saved' }).waitFor();
+  console.log('Closing and restarting packaged executable');
   await closeApp();
+  await new Promise((r) => setTimeout(r, 1000));
   page = await launch();
   await page.goto(`${new URL(page.url()).origin}/settings`);
   await expect(page.getByRole('checkbox')).not.toBeChecked();
   console.log('PASS: independently launched package, search, details, settings and restart.');
   console.log('Live playback, subtitles and native/media fullscreen remain manual release gates.');
 } catch (error) {
+  console.error('Smoke failure:', error);
   console.error('Application output:', output);
   for (const name of ['desktop.log', 'server.log']) {
     try { console.error(name, await readFile(path.join(profile, name), 'utf8')); } catch {}
   }
   throw error;
-} finally { await closeApp(); await rm(profile, { recursive: true, force: true }); }
+} finally {
+  await closeApp();
+  await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }).catch((e) => console.warn('Temporary profile cleanup:', e.message));
+}
