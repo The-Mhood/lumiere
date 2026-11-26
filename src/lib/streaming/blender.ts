@@ -105,18 +105,21 @@ export class BlenderProvider implements ProviderAdapter {
     const key = `blender:sources:${title.slug}:${title.year}:${title.episodeName ?? "movie"}`;
     const hit = cache.get<SourceRecord[]>(key);
     if (hit) return hit;
+    // Leave time inside the resolver's six-second deadline for the verified
+    // bootstrap fallback, even when several metadata requests are slow.
+    const liveSignal = AbortSignal.any([signal, AbortSignal.timeout(4500)]);
     try {
-    const candidates = (await this.catalogue(signal)).filter((v) => matchesBlenderVideo(title, v));
+    const candidates = (await this.catalogue(liveSignal)).filter((v) => matchesBlenderVideo(title, v));
     if (!candidates.length) return [];
     // The official channel carries both original and remastered editions.
     // Each independently verified edition is a legitimate fallback, not an
     // ambiguous third-party title search result.
     const editions = await Promise.all(candidates.slice(0, 3).map(async (candidate) => {
-      const video = await this.json<Video>(`/api/v1/videos/${encodeURIComponent(candidate.uuid)}`, signal);
+      const video = await this.json<Video>(`/api/v1/videos/${encodeURIComponent(candidate.uuid)}`, liveSignal);
       if (!matchesBlenderVideo(title, video) || video.uuid !== candidate.uuid) throw new IdentityError("Official video identity changed");
       let captions: Caption[] = [];
-      try { captions = (await this.json<{ data: Caption[] }>(`/api/v1/videos/${encodeURIComponent(video.uuid)}/captions`, signal)).data; }
-      catch { signal.throwIfAborted(); /* Optional captions must not disable video. */ }
+      try { captions = (await this.json<{ data: Caption[] }>(`/api/v1/videos/${encodeURIComponent(video.uuid)}/captions`, liveSignal)).data; }
+      catch { liveSignal.throwIfAborted(); /* Optional captions must not disable video. */ }
       return normalizeBlenderVideo(video, captions);
     }));
     const records = editions.flat();
