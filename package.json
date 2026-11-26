@@ -84,6 +84,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
-    "afterPack": "electron/after-pack.cjs"
+    "afterPack": "electron/after-pack.cjs",
+    "dmg": {
+      "backgroundColor": "#07080c"
+    }
   }
 }

@@ -38,6 +38,7 @@ jobs:
         run: |
           node -e "const fs=require('fs'); if(fs.existsSync('native-build.log')) console.log('::error::'+fs.readFileSync('native-build.log','utf8').slice(-12000).replaceAll('%','%25').replaceAll('\\r','%0D').replaceAll('\\n','%0A'));"
       - name: Package native application
+        id: packaging
         shell: bash
         run: |
           set -o pipefail
@@ -49,6 +50,7 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Launch packaged application
+        if: ${{ !cancelled() && steps.packaging.outcome != 'skipped' }}
         timeout-minutes: 6
         env:
           LUMIERE_LIVE_MEDIA_TEST: '1'
