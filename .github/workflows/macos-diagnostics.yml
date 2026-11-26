@@ -18,7 +18,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run desktop:prepare
-      - run: npx electron-builder --mac --dir --config.mac.identity=- --config.mac.hardenedRuntime=false --publish never
+      - run: npx electron-builder --mac --dir --config.productName=Lumiere --config.mac.identity=- --config.mac.hardenedRuntime=false --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - run: node scripts/diagnose-macos.mjs

@@ -14,7 +14,7 @@
     "desktop:prepare": "node scripts/build-desktop.mjs && node scripts/prepare-desktop.mjs",
     "desktop": "npm run desktop:prepare && electron .",
     "desktop:pack": "npm run desktop:prepare && electron-builder --dir",
-    "desktop:mac": "npm run desktop:prepare && electron-builder --mac",
+    "desktop:mac": "npm run desktop:prepare && electron-builder --mac --config.productName=Lumiere",
     "desktop:win": "npm run desktop:prepare && electron-builder --win"
   },
   "dependencies": {
@@ -71,7 +71,10 @@
       "hardenedRuntime": true,
       "icon": "electron/assets/icon.png",
       "entitlements": "electron/entitlements.mac.plist",
-      "entitlementsInherit": "electron/entitlements.mac.plist"
+      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "extendInfo": {
+        "CFBundleDisplayName": "Lumière"
+      }
     },
     "win": {
       "target": [

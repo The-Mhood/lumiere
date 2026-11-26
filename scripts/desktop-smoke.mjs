@@ -5,8 +5,15 @@ import net from 'node:net';
 import path from 'node:path';
 import os from 'node:os';
 const dirs = await readdir('release');
-const exe = process.platform === 'win32' ? path.resolve('release/win-unpacked/Lumière.exe') :
-  path.resolve('release', dirs.find((d) => d === 'mac' || d.startsWith('mac-')), 'Lumière.app/Contents/MacOS/Lumière');
+let exe;
+if (process.platform === 'win32') exe = path.resolve('release/win-unpacked/Lumière.exe');
+else {
+  const mac = dirs.find((d) => d === 'mac' || d.startsWith('mac-'));
+  const bundle = (await readdir(path.join('release', mac))).find((d) => d.endsWith('.app'));
+  const bin = path.join('release', mac, bundle, 'Contents', 'MacOS');
+  const executable = (await readdir(bin))[0];
+  exe = path.resolve(bin, executable);
+}
 const profile = await mkdtemp(path.join(os.tmpdir(), 'lumiere-smoke-'));
 let child;
 let browser;
