@@ -76,6 +76,32 @@ try {
   await page.getByRole('checkbox').uncheck();
   await page.getByRole('button', { name: 'Save preferences' }).click();
   await page.getByRole('status').filter({ hasText: 'Saved' }).waitFor();
+  if (process.env.LUMIERE_LIVE_MEDIA_TEST === '1') {
+    console.log('Checking live playback with primary-source failure');
+    let primaryBlocked = false;
+    await page.route('**/akamai/bbb_30fps/bbb_30fps.mpd', (route) => { primaryBlocked = true; return route.abort('failed'); });
+    await page.goto(`${origin}/watch/big-buck-bunny`);
+    const video = page.locator('video');
+    await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 100000 }).toBeGreaterThanOrEqual(2);
+    if (await video.evaluate((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
+    await expect.poll(() => video.evaluate((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
+    if (!primaryBlocked) throw new Error('Primary-source failure interception was not exercised');
+    await page.mouse.move(300, 300);
+    await page.getByRole('button', { name: 'Pause (k)', exact: true }).click();
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+    const before = await video.evaluate((v) => v.currentTime);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => video.evaluate((v) => v.currentTime)).toBeGreaterThan(before + 3);
+    await page.getByRole('button', { name: 'Fullscreen (f)', exact: true }).click();
+    await page.waitForFunction(() => !!document.fullscreenElement);
+    const fillsWindow = await page.evaluate(() => {
+      const bounds = document.fullscreenElement.getBoundingClientRect();
+      return Math.abs(bounds.width - innerWidth) < 2 && Math.abs(bounds.height - innerHeight) < 2;
+    });
+    if (!fillsWindow) throw new Error('Media fullscreen does not fill the app display');
+    await page.evaluate(() => document.exitFullscreen());
+    console.log('PASS: live source fallback, playback, pause, seek and media fullscreen.');
+  }
   console.log('Closing and restarting packaged executable');
   await closeApp();
   await new Promise((r) => setTimeout(r, 1000));
@@ -83,7 +109,7 @@ try {
   await page.goto(`${new URL(page.url()).origin}/settings`);
   await expect(page.getByRole('checkbox')).not.toBeChecked();
   console.log('PASS: independently launched package, search, details, settings and restart.');
-  console.log('Live playback, subtitles and native/media fullscreen remain manual release gates.');
+  console.log('Subtitles, audio/quality, episode playback and signed installation remain manual release gates.');
 } catch (error) {
   console.error('Smoke failure:', error);
   console.error('Application output:', output);
