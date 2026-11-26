@@ -33,15 +33,14 @@ export default async function WatchPage({
   if (title.kind === "series" && !episode) episode = allEpisodes[0];
   if (title.kind === "series" && !episode) notFound();
 
-  // Resolve playback only when the watch page is opened. These URLs are request-scoped
-  // and are never inserted into PostgreSQL. Keep existing curated sources as fallback.
+  // Resolve playback only when the watch page is opened. Playback URLs are never read
+  // from or written to the PostgreSQL sources table.
   const resolvedSources = await resolveOwnedSitePlayback({
     title: title.name,
     year: title.year,
     episode: episode?.name,
   });
-  const storedSources = episode ? episode.sources : title.sources;
-  const sources = [...resolvedSources, ...storedSources];
+  const sources = resolvedSources;
   const idx = episode ? allEpisodes.findIndex((e) => e.id === episode!.id) : -1;
   const prev = idx > 0 ? allEpisodes[idx - 1] : undefined;
   const next = idx >= 0 && idx < allEpisodes.length - 1 ? allEpisodes[idx + 1] : undefined;
