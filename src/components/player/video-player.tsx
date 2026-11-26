@@ -109,7 +109,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
       if (cancelled || failedOnce) return;
       failedOnce = true;
       console.warn(`[player] source ${source.id} failed: ${reason}`);
-      void fetch(`/api/sources/${source.id}/health`).catch(() => {});
+      if (source.id > 0) void fetch(`/api/sources/${source.id}/health`).catch(() => {});
       setFailed((prev) => {
         const next = new Set(prev).add(source.id);
         const fallback = sources.find((s) => !next.has(s.id));

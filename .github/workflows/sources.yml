@@ -1,0 +1,28 @@
+name: Catalogue source coverage
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/e423f162-lumiere']
+    paths:
+      - 'src/lib/streaming/**'
+      - 'scripts/verify-catalogue-sources.ts'
+      - '.github/workflows/sources.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/verify-catalogue-sources.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-coverage
+          path: source-coverage.json

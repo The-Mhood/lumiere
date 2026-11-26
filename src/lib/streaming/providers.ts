@@ -1,3 +1,4 @@
+import { BlenderProvider } from "./blender";
 import { curatedSourceMatches } from "./curated-matches";
 import { and, eq, ilike, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -38,9 +39,12 @@ let resolver: SourceResolver | undefined;
 let signature = "";
 export async function getResolver() {
   const configured = await db.select().from(providers).where(eq(providers.authorized, true));
-  const current = JSON.stringify(configured.map((p) => [p.slug, p.priority, p.allowedHosts]));
+  const current = JSON.stringify([process.env.LUMIERE_OFFICIAL_SOURCES, configured.map((p) => [p.slug, p.priority, p.allowedHosts])]);
   if (!resolver || signature !== current) {
-    resolver = new SourceResolver(configured.map((p) => new CatalogueProvider(p.slug, p.priority)));
+    resolver = new SourceResolver([
+      ...configured.map((p) => new CatalogueProvider(p.slug, p.priority)),
+      ...(process.env.LUMIERE_OFFICIAL_SOURCES === "0" ? [] : [new BlenderProvider()]),
+    ]);
     signature = current;
   }
   return resolver;

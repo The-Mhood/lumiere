@@ -6,6 +6,7 @@ export interface TitleMatch {
   year: number;
   kind: "movie" | "series";
   episodeId?: number;
+  episodeName?: string;
 }
 export interface ProviderAdapter {
   id: string;

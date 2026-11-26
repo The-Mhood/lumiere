@@ -1,3 +1,4 @@
+import { getResolver } from "@/lib/streaming/providers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
@@ -18,9 +19,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function TitlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [title, user] = await Promise.all([getTitleBySlug(slug), getCurrentUser()]);
-  if (!title) notFound();
+  const [record, user] = await Promise.all([getTitleBySlug(slug), getCurrentUser()]);
+  if (!record) notFound();
+  const title = structuredClone(record);
 
+  const resolver = await getResolver();
+  if (title.kind === "movie") {
+    title.sources = (await resolver.resolve({ slug: title.slug, name: title.name, year: title.year, kind: title.kind })).sources;
+  } else {
+    await Promise.all(title.seasons.flatMap((s) => s.episodes).map(async (episode) => {
+      episode.sources = (await resolver.resolve({ slug: title.slug, name: title.name, year: title.year, kind: title.kind, episodeId: episode.id, episodeName: episode.name })).sources;
+    }));
+  }
   let inWatchlist = false;
   if (user) {
     const [row] = await db

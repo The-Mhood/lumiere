@@ -33,7 +33,7 @@ export default async function WatchPage({
   if (title.kind === "series" && !episode) episode = allEpisodes[0];
   if (title.kind === "series" && !episode) notFound();
 
-  const resolution = await (await getResolver()).resolve({ slug: title.slug, name: title.name, year: title.year, kind: title.kind, episodeId: episode?.id });
+  const resolution = await (await getResolver()).resolve({ slug: title.slug, name: title.name, year: title.year, kind: title.kind, episodeId: episode?.id, episodeName: episode?.name });
   const sources = resolution.sources;
   const idx = episode ? allEpisodes.findIndex((e) => e.id === episode!.id) : -1;
   const prev = idx > 0 ? allEpisodes[idx - 1] : undefined;
