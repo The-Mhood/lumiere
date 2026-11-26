@@ -42,10 +42,12 @@ function allowedMediaHost(url: string, site: (typeof SITES)[number]) {
   } catch { return false; }
 }
 
-async function fetchPage(url: string) {
+async function fetchPage(url: string, site: (typeof SITES)[number]) {
+  const parsed = new URL(url);
+  if (parsed.origin !== site.origin) throw new Error("Refusing to fetch a URL outside the configured provider origin");
   const response = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; LumierePlaybackResolver/1.0)" },
-    signal: AbortSignal.timeout(10000), cache: "no-store", redirect: "follow",
+    signal: AbortSignal.timeout(10000), cache: "no-store", redirect: "error",
   });
   if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
   return response.text();
@@ -55,7 +57,7 @@ async function candidatePages(site: (typeof SITES)[number], input: ResolveInput)
   let entries: string[] = [];
   for (const path of ["/sitemap.xml", "/sitemap_index.xml"]) {
     try {
-      const xml = await fetchPage(site.origin + path);
+      const xml = await fetchPage(site.origin + path, site);
       entries = [...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map((m) => decode(m[1].trim()));
       if (entries.length) break;
     } catch {}
@@ -65,7 +67,7 @@ async function candidatePages(site: (typeof SITES)[number], input: ResolveInput)
   for (const entry of entries.slice(0, 20)) {
     if (!/\.xml(?:\?|$)/i.test(entry)) { all.push(entry); continue; }
     try {
-      const xml = await fetchPage(entry);
+      const xml = await fetchPage(entry, site);
       all.push(...[...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)].map((m) => decode(m[1].trim())));
     } catch {}
   }
@@ -114,7 +116,7 @@ export async function resolveOwnedSitePlayback(input: ResolveInput): Promise<Pla
     try { pages = await candidatePages(site, input); } catch { continue; }
     const pageResults = await Promise.all(pages.map(async (url) => {
       try {
-        const html = await fetchPage(url);
+        const html = await fetchPage(url, site);
         const titleText = decode(
           html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i)?.[1]
           ?? html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "",
@@ -126,5 +128,5 @@ export async function resolveOwnedSitePlayback(input: ResolveInput): Promise<Pla
     }));
     results.push(...pageResults.flat());
   }
-  return results;
+  return results.map((source, index) => ({ ...source, id: -(index + 1), priority: index }));
 }
