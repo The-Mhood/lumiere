@@ -48,10 +48,10 @@ describe('official Blender provider', () => {
     expect(await provider.resolve(title, new AbortController().signal)).toHaveLength(1);
     expect(fetch).toHaveBeenCalledTimes(3);
   });
-  it('returns clear HTTP and ambiguous-match failures', async () => {
+  it('returns clear HTTP and changed-identity failures', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
     await expect(new BlenderProvider().resolve(title, new AbortController().signal)).rejects.toThrow('HTTP 503');
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ total: 2, data: [movie, { ...movie, uuid: 'other' }] })));
-    await expect(new BlenderProvider().resolve(title, new AbortController().signal)).rejects.toThrow('Ambiguous');
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(url.includes('/video-channels/') ? { total: 1, data: [movie] } : { ...movie, uuid: 'wrong' })));
+    await expect(new BlenderProvider().resolve(title, new AbortController().signal)).rejects.toThrow('identity changed');
   });
 });

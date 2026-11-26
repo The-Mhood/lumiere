@@ -1,4 +1,4 @@
-import { getResolver } from "@/lib/streaming/providers";
+import { withResolvedSources } from "@/lib/streaming/enrich";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
@@ -21,16 +21,8 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const [record, user] = await Promise.all([getTitleBySlug(slug), getCurrentUser()]);
   if (!record) notFound();
-  const title = structuredClone(record);
+  const title = await withResolvedSources(record);
 
-  const resolver = await getResolver();
-  if (title.kind === "movie") {
-    title.sources = (await resolver.resolve({ slug: title.slug, name: title.name, year: title.year, kind: title.kind })).sources;
-  } else {
-    await Promise.all(title.seasons.flatMap((s) => s.episodes).map(async (episode) => {
-      episode.sources = (await resolver.resolve({ slug: title.slug, name: title.name, year: title.year, kind: title.kind, episodeId: episode.id, episodeName: episode.name })).sources;
-    }));
-  }
   let inWatchlist = false;
   if (user) {
     const [row] = await db

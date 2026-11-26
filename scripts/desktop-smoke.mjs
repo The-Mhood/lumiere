@@ -79,6 +79,8 @@ try {
   if (process.env.LUMIERE_LIVE_MEDIA_TEST === '1') {
     console.log('Checking live playback with primary-source failure');
     let primaryBlocked = false;
+    const blockedMaster = '**/object-storage/streaming_playlists/hls/**/*master.m3u8';
+    await page.route(blockedMaster, (route) => { primaryBlocked = true; return route.abort('failed'); });
     await page.route('**/akamai/bbb_30fps/bbb_30fps.mpd', (route) => { primaryBlocked = true; return route.abort('failed'); });
     await page.goto(`${origin}/watch/big-buck-bunny`);
     const video = page.locator('video');
@@ -101,6 +103,17 @@ try {
     if (!fillsWindow) throw new Error('Media fullscreen does not fill the app display');
     await page.evaluate(() => document.exitFullscreen());
     console.log('PASS: live source fallback, playback, pause, seek and media fullscreen.');
+    await page.unroute(blockedMaster);
+    const movies = ['sintel', 'tears-of-steel', 'elephants-dream', 'cosmos-laundromat', 'spring', 'agent-327-operation-barbershop', 'sprite-fright', 'charge'];
+    for (const slug of movies) {
+      console.log(`Checking full catalogue playback: ${slug}`);
+      await page.goto(`${origin}/watch/${slug}`);
+      await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 90000 }).toBeGreaterThanOrEqual(2);
+      if (await video.evaluate((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
+      await expect.poll(() => video.evaluate((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
+      console.log(`PASS: ${slug} playback`);
+    }
+    console.log('::notice title=Movie playback coverage::PASS: all nine curated movies started in the packaged desktop player');
   }
   console.log('Closing and restarting packaged executable');
   await closeApp();

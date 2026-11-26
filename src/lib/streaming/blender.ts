@@ -104,14 +104,19 @@ export class BlenderProvider implements ProviderAdapter {
     const hit = cache.get<SourceRecord[]>(key);
     if (hit) return hit;
     const candidates = (await this.catalogue(signal)).filter((v) => matchesBlenderVideo(title, v));
-    if (candidates.length > 1) throw new Error(`Ambiguous official title match: ${title.name}`);
     if (!candidates.length) return [];
-    const video = await this.json<Video>(`/api/v1/videos/${encodeURIComponent(candidates[0].uuid)}`, signal);
-    if (!matchesBlenderVideo(title, video) || video.uuid !== candidates[0].uuid) throw new Error("Official video identity changed");
-    let captions: Caption[] = [];
-    try { captions = (await this.json<{ data: Caption[] }>(`/api/v1/videos/${encodeURIComponent(video.uuid)}/captions`, signal)).data; }
-    catch { signal.throwIfAborted(); /* Optional captions must not disable video. */ }
-    const records = normalizeBlenderVideo(video, captions);
+    // The official channel carries both original and remastered editions.
+    // Each independently verified edition is a legitimate fallback, not an
+    // ambiguous third-party title search result.
+    const editions = await Promise.all(candidates.slice(0, 3).map(async (candidate) => {
+      const video = await this.json<Video>(`/api/v1/videos/${encodeURIComponent(candidate.uuid)}`, signal);
+      if (!matchesBlenderVideo(title, video) || video.uuid !== candidate.uuid) throw new Error("Official video identity changed");
+      let captions: Caption[] = [];
+      try { captions = (await this.json<{ data: Caption[] }>(`/api/v1/videos/${encodeURIComponent(video.uuid)}/captions`, signal)).data; }
+      catch { signal.throwIfAborted(); /* Optional captions must not disable video. */ }
+      return normalizeBlenderVideo(video, captions);
+    }));
+    const records = editions.flat();
     if (records.length) cache.set(key, records, 300);
     return records;
   }

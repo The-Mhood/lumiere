@@ -51,7 +51,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Launch packaged application
         if: ${{ !cancelled() && steps.packaging.outcome != 'skipped' }}
-        timeout-minutes: 6
+        timeout-minutes: 15
         env:
           LUMIERE_LIVE_MEDIA_TEST: '1'
         shell: bash
