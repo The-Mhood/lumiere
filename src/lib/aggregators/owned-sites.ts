@@ -101,7 +101,7 @@ async function discoverPages(origin: string, limit: number, ctx: AdapterContext)
       for (const match of homepage.matchAll(/href=["']([^"']+)["']/gi)) {
         try {
           const u = new URL(decode(match[1]), origin);
-          if (u.origin === origin && /\\/(?:movie|movies|series|tv)\\//i.test(u.pathname)) pages.add(u.href);
+          if (u.origin === origin && /\/(?:movie|movies|series|tv)\//i.test(u.pathname)) pages.add(u.href);
         } catch {}
         if (pages.size >= limit) break;
       }
@@ -159,10 +159,11 @@ export const ownedSitesAdapter: AggregatorAdapter = {
     const out: AggregatedTitle[] = [];
     for (const site of SITES) {
       try {
-        const urls = await discoverPages(site.origin, Math.max(ctx.limit, 10), ctx);
+        const siteLimit = Math.max(10, Math.ceil(ctx.limit / SITES.length));
+        const urls = await discoverPages(site.origin, siteLimit, ctx);
         ctx.log(`${site.name}: discovered ${urls.length} movie/series pages`);
         for (const url of urls) {
-          if (out.length >= ctx.limit) break;
+          if (out.length >= ctx.limit * SITES.length) break;
           try {
             const html = await fetchText(url);
             const title = parsePage(html, url, site);
@@ -174,7 +175,7 @@ export const ownedSitesAdapter: AggregatorAdapter = {
       } catch (error) {
         ctx.log(`${site.name} import failed: ${(error as Error).message}`);
       }
-      if (out.length >= ctx.limit) break;
+      if (out.length >= ctx.limit * SITES.length) break;
     }
     ctx.log(`owned-sites: parsed ${out.length} catalogue records`);
     return out;
