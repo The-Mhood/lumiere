@@ -19,7 +19,7 @@ describe("aggregator normalisation", () => {
     expect(slugify("Amélie!!")).toBe("amelie");
   });
   it("registers adapters and reports configuration", () => {
-    expect(ADAPTERS.map((a) => a.key)).toEqual(["internet-archive", "tmdb"]);
+    expect(ADAPTERS.map((a) => a.key)).toEqual(["internet-archive", "tmdb", "cinejoy"]);
     expect(getAdapter("internet-archive")!.configured()).toBe(true);
     expect(getAdapter("nope")).toBeNull();
   });
