@@ -68,8 +68,27 @@ function openWindow() {
   const s = settings();
   window = new BrowserWindow({ width: s.width || 1440, height: s.height || 900, minWidth: 800, minHeight: 600,
     backgroundColor: '#07080c', title: 'Lumière', show: false,
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false },
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false, disableHtmlFullscreenWindowResize: process.platform === 'darwin' },
   });
+  if (process.platform === 'darwin') {
+    // Keep HTML fullscreen independent of macOS Spaces animations. Native
+    // fullscreen transitions are asynchronous and can leave exitFullscreen()
+    // pending forever when the user enters/exits rapidly. Simple fullscreen
+    // still occupies the entire display and restores the original window.
+    let mediaEnteredSimpleFullscreen = false;
+    window.on('enter-html-full-screen', () => {
+      if (!window.isFullScreen() && !window.isSimpleFullScreen()) {
+        mediaEnteredSimpleFullscreen = true;
+        window.setSimpleFullScreen(true);
+      }
+      diagnostic('Entered media fullscreen');
+    });
+    window.on('leave-html-full-screen', () => {
+      if (mediaEnteredSimpleFullscreen) window.setSimpleFullScreen(false);
+      mediaEnteredSimpleFullscreen = false;
+      diagnostic('Left media fullscreen');
+    });
+  }
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
   window.webContents.on('will-redirect', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
@@ -112,7 +131,7 @@ else {
     session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(permission === 'fullscreen'));
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
-      { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
+      { label: 'View', submenu: [{ role: 'reload' }, ...(process.platform === 'darwin' ? [{ label: 'Toggle Full Screen', accelerator: 'Ctrl+Command+F', click: () => window?.setSimpleFullScreen(!window.isSimpleFullScreen()) }] : [{ role: 'togglefullscreen' }]), { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
       { role: 'editMenu' }, { role: 'windowMenu' },
     ]));
     try { await startServer(); diagnostic('Server ready'); openWindow(); } catch (e) { diagnostic(`Startup failed: ${e.stack || e.message}`); dialog.showErrorBox('Lumière startup failed', e.message); app.quit(); }

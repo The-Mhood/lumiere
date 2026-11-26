@@ -133,12 +133,17 @@ try {
     progress('Checking media fullscreen');
     await page.getByRole('button', { name: 'Fullscreen (f)', exact: true }).click();
     await page.waitForFunction(() => !!document.fullscreenElement);
+    progress('Checking fullscreen display bounds');
     const fillsWindow = await page.evaluate(() => {
       const bounds = document.fullscreenElement.getBoundingClientRect();
       return Math.abs(bounds.width - innerWidth) < 2 && Math.abs(bounds.height - innerHeight) < 2;
     });
     if (!fillsWindow) throw new Error('Media fullscreen does not fill the app display');
-    await page.evaluate(() => document.exitFullscreen());
+    progress('Exiting media fullscreen');
+    // Trigger without coupling the CDP response to the native transition.
+    await page.evaluate(() => { void document.exitFullscreen(); });
+    await page.waitForFunction(() => !document.fullscreenElement);
+    progress('Media fullscreen exited');
     console.log('PASS: live source fallback, playback, pause, seek and media fullscreen.');
     await page.unroute(blockPrimary);
     const movies = ['sintel', 'tears-of-steel', 'elephants-dream', 'cosmos-laundromat', 'spring', 'agent-327-operation-barbershop', 'sprite-fright', 'charge'];
