@@ -4,7 +4,6 @@
   "description": "Stable public MP4 files from the official Blender Open Movies API. Verified using ranged video requests. Bootstrap fallback only; no signed/expiring URLs.",
   "films": {
     "charge": [
-      "https://video.blender.org/object-storage/streaming_playlists/hls/04da454b-9893-4184-98f3-248d00625efe/0fe74282-868e-4952-af13-944d9ae6c17b-master.m3u8",
       "https://video.blender.org/object-storage/web_videos/020223f7-9721-4288-afab-71594f8d2411-1608.mp4"
     ],
     "sprite-fright": [
