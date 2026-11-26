@@ -34,13 +34,15 @@ npm run desktop:mac   # macOS DMG + ZIP
 npm run desktop:win   # Windows NSIS installer
 ```
 
-Output is in `release/` (ignored by Git). `.github/workflows/desktop.yml` builds on native macOS and Windows runners, launches each packaged executable, checks search/details/settings/restart, and uploads available installers. Workflow failures are release blockers, even when installer artifacts exist.
+Output is in `release/` (ignored by Git). `.github/workflows/desktop.yml` builds on native macOS and Windows runners, launches each packaged executable, checks search/details/settings/restart plus live fallback playback, controls and media fullscreen, and uploads available installers. Workflow failures are release blockers, even when installer artifacts exist.
+
+On macOS software compositing is the default (`LUMIERE_ENABLE_GPU=1` opts in to hardware acceleration); this did not resolve the native startup failure.
 
 The shell runs the bundled standalone Next server using Electron's utility process; users need neither Node nor a development server. It binds only to loopback, uses a stable per-install port for storage persistence, generates a private installation auth secret, stores the embedded DB under Electron's OS user-data directory, blocks new windows and off-origin top-level navigation, and stops the server on quit. Server diagnostics are in `server.log` in that directory. Window dimensions and maximization persist. Native and media fullscreen use the application display bounds.
 
 Installers are currently **unsigned** unless signing credentials are configured by the release team. Configure Apple Developer signing/notarization and Windows signing before public distribution. There is no automatic update service: install a newer version over the old version; application identity and user-data paths stay stable. Do not ship a database or `.env` file with an installer.
 
-After building a native package, run `node scripts/desktop-smoke.mjs`. Manual release gates still include live MP4/HLS/DASH playback, subtitles/audio/quality, media fullscreen, real provider failure, episode playback/progression, signed installation and upgrade on both platforms.
+After building a native package, run `node scripts/desktop-smoke.mjs`. Manual release gates still include complete MP4/HLS/DASH endpoint coverage, subtitles/audio/quality, episode playback/progression, signed installation and upgrade on both platforms. Windows live fallback/playback/control/fullscreen checks have passed; macOS launch has not. See `DELIVERY.md` for exact results and artifact links.
 
 ## Source engine
 
@@ -61,4 +63,4 @@ A manually destructive catalogue reset requires `npm run db:seed -- --reset` and
 
 ## Delivery status
 
-This branch contains implemented and locally tested app/desktop infrastructure, not a certified production release. Consult the native workflow results and complete the live-media/manual platform gates above before release. Do not represent unavailable catalogue mappings, unsigned builds, or unexecuted playback tests as completed features.
+This branch delivers a verified Windows test build and app/desktop infrastructure, **not a completed production release**. macOS builds exit with SIGTRAP before Electron is ready. See `DELIVERY.md`. Consult the native workflow results and complete the live-media/manual platform gates above before release. Do not represent unavailable catalogue mappings, unsigned builds, or unexecuted playback tests as completed features.
