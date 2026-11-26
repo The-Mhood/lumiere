@@ -4,6 +4,7 @@ on:
   push:
     tags: ['v*']
     branches: ['arena/e423f162-lumiere']
+    paths-ignore: ['scripts/diagnose-macos.mjs', '.github/workflows/macos-diagnostics.yml', '**/*.md']
 permissions:
   contents: read
 jobs:

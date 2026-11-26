@@ -7,8 +7,8 @@ const bundle = readdirSync(path.join('release', mac)).find((n) => n.endsWith('.a
 const executable = readdirSync(path.join('release', mac, bundle, 'Contents', 'MacOS'))[0];
 const exe = path.resolve('release', mac, bundle, 'Contents', 'MacOS', executable);
 const profile = mkdtempSync(path.join(os.tmpdir(), 'lumiere-native-trace-'));
-const result = spawnSync('lldb', ['--batch', '-o', 'settings set target.process.stop-on-sharedlibrary-events false', '-o', 'run', '-o', 'thread backtrace all', '--', exe, '--enable-logging=stderr'], {
-  env: { ...process.env, LUMIERE_USER_DATA_DIR: profile }, encoding: 'utf8', timeout: 45000, maxBuffer: 4 * 1024 * 1024,
+const result = spawnSync('lldb', ['--batch', '-o', 'settings set target.process.stop-on-sharedlibrary-events false', '-o', 'run', '-k', 'thread backtrace all', '--', exe, '--enable-logging=stderr'], {
+  env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1", LUMIERE_USER_DATA_DIR: profile }, encoding: 'utf8', timeout: 45000, maxBuffer: 4 * 1024 * 1024,
 });
 const log = `${result.stdout}\n${result.stderr}\n${result.error ?? ''}`;
 writeFileSync('mac-native-trace.log', log);
