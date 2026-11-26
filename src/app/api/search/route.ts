@@ -1,13 +1,23 @@
-import { NextRequest } from "next/server";
-import { queryCatalogue } from "@/lib/content";
+import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+// Import Python backend modules (if using subprocess)
+import aiohttp from "aiohttp";
 
-export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams;
-  const q = sp.get("q")?.trim() ?? "";
-  if (q.length < 1) return Response.json({ items: [], total: 0 });
-  const limit = Math.min(24, Number(sp.get("limit") ?? 12));
-  const result = await queryCatalogue({ q, pageSize: limit, page: 1 });
-  return Response.json(result, { headers: { "Cache-Control": "public, max-age=30" } });
+export async function GET(request: NextRequest) {
+  const searchParams = new URLSearchParams(request.nextUrl.searchParams);
+  const query = searchParams.get("q") || "";
+  
+  // Call Python backend or scrape directly
+  const session = new aiohttp.ClientSession();
+  const scraper = new CinejoyScraper(session);
+  
+  try {
+    const movieData = await scraper.fetch_movie(query);
+    return NextResponse.json({
+      success: true,
+      data: movieData,
+    });
+  } finally {
+    await session.close();
+  }
 }
