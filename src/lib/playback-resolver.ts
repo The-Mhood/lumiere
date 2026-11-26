@@ -49,7 +49,7 @@ async function fetchPage(url: string, site: (typeof SITES)[number]) {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; LumierePlaybackResolver/1.0)" },
     signal: AbortSignal.timeout(10000), cache: "no-store", redirect: "error",
   });
-  if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
 }
 
@@ -72,7 +72,7 @@ async function candidatePages(site: (typeof SITES)[number], input: ResolveInput)
     } catch {}
   }
 
-  const terms = slug(input.episode ? \`\${input.title} \${input.episode}\` : input.title).split("-").filter((x) => x.length > 2);
+  const terms = slug(input.episode ? `${input.title} ${input.episode}` : input.title).split("-").filter((x) => x.length > 2);
   return all.filter((url) => {
     try {
       const u = new URL(url);
@@ -101,7 +101,7 @@ function extractSources(html: string, pageUrl: string, site: (typeof SITES)[numb
   }
   return [...found].map((url, index) => ({
     id: -(SITES.indexOf(site) * 1000 + index + 1),
-    label: \`\${site.name} · Source \${index + 1}\`,
+    label: `${site.name} · Source ${index + 1}`,
     provider: site.name, providerSlug: site.slug, url, format: formatOf(url)!,
     resolutions: [], audioLanguages: ["en"], subtitleLanguages: [], subtitles: [],
     status: "unknown" as const, priority: SITES.indexOf(site) * 100 + index,
