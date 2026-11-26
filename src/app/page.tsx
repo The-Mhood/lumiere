@@ -48,6 +48,12 @@ export default async function HomePage() {
         </Rail>
       )}
 
+      {rails.cinejoy.length > 0 && (
+        <Rail title="Cinejoy catalogue" href="/movies" subtitle="Imported listings · in-app playback not yet verified">
+          {rails.cinejoy.map((t) => <TitleCard key={t.id} item={t} />)}
+        </Rail>
+      )}
+
       <Rail title="Trending now" href="/movies?sort=popular" subtitle="What everyone is watching this week">
         {rails.trending.map((t, i) => (
           <div key={t.id} className="relative flex items-end gap-1">
@@ -121,7 +127,7 @@ export default async function HomePage() {
         <div className="grid gap-4 rounded-3xl border border-white/5 bg-gradient-to-br from-ink-700 to-ink-800 p-8 md:grid-cols-3">
           {[
             ["Up to 4K UHD", "Adaptive HLS & DASH streaming that scales to your connection, up to 2160p."],
-            ["Multiple sources", "Every title has several authorized servers with automatic health-aware fallback."],
+            ["Multiple sources", "Available playback sources use automatic health-aware fallback. Catalogue-only listings are marked unavailable."],
             ["Zero ads", "No pop-ups, no redirects, no fake buttons. Just the film."],
           ].map(([h, p]) => (
             <div key={h}>

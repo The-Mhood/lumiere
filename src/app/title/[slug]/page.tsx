@@ -141,7 +141,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
         {title.availability.length > 0 && (
           <section className="mt-12">
             <h2 className="font-display text-2xl font-semibold">Where to watch</h2>
-            <p className="mt-1 text-sm text-mist">Aggregated availability across platforms. Links open the official platform page.</p>
+            <p className="mt-1 text-sm text-mist">Aggregated availability across platforms. Links open the external provider page; availability is not a guarantee of in-app playback.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {title.availability.map((a) => (
                 <a key={a.id} href={a.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 rounded-xl border border-white/10 bg-ink-800 p-4 transition hover:border-ember/50">

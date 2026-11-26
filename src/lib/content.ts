@@ -138,6 +138,7 @@ export async function homeRails() {
       .innerJoin(titles, eq(titles.id, episodes.titleId))
       .orderBy(desc(episodes.airDate), desc(episodes.id))
       .limit(8);
+    const cinejoy = await db.select(cardColumns).from(titles).where(eq(titles.externalSource, "cinejoy")).orderBy(desc(titles.createdAt), desc(titles.id)).limit(24);
     const archive = await db.select(cardColumns).from(titles).where(eq(titles.externalSource, "internet-archive")).orderBy(desc(titles.rating), desc(titles.popularity)).limit(14);
     const genreRows = await db.select().from(genres).orderBy(asc(genres.name));
     const collections = await Promise.all(
@@ -152,7 +153,7 @@ export async function homeRails() {
           .limit(12),
       })),
     );
-    return { featured, trending, popular, recent, series, topRated, latestEpisodes, collections, archive };
+    return { featured, trending, popular, recent, series, topRated, latestEpisodes, collections, archive, cinejoy };
   });
 }
 

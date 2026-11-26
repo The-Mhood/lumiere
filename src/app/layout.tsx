@@ -29,8 +29,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <div className="mx-auto max-w-7xl px-4">
             <p className="font-display text-lg font-semibold text-snow">Lumière</p>
             <p className="mt-2">
-              Every title on Lumière is openly licensed (CC BY — Blender Foundation open movies) and streamed from
-              authorized providers only. No ads. No pop-ups. Ever.
+              Movie discovery across providers. Playback availability and licensing vary by title and source.
+              Catalogue listings are not a guarantee of in-app streaming.
             </p>
           </div>
         </footer>
