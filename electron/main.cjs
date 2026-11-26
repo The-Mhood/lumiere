@@ -69,9 +69,29 @@ function openWindow() {
   window.once('ready-to-show', () => { if (s.maximized) window.maximize(); window.show(); });
   window.loadURL(origin).catch((e) => dialog.showErrorBox('Lumière could not open', e.message));
 }
-if (!app.requestSingleInstanceLock()) app.quit();
+// A filesystem lock also protects the embedded DB when a second executable
+// is launched directly, without relying on a platform-native singleton broker.
+const lockPath = path.join(dataPath, 'instance.lock');
+let ownsLock = false;
+function acquireLock() {
+  try {
+    const fd = fs.openSync(lockPath, 'wx');
+    fs.writeFileSync(fd, String(process.pid)); fs.closeSync(fd);
+    ownsLock = true; return true;
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    try {
+      const pid = Number(fs.readFileSync(lockPath, 'utf8'));
+      if (!pid) return false;
+      try { process.kill(pid, 0); return false; } catch (e) { if (e.code !== 'ESRCH') return false; }
+      fs.unlinkSync(lockPath); return acquireLock();
+    } catch { return false; }
+  }
+}
+process.on('exit', () => { if (ownsLock) { try { fs.unlinkSync(lockPath); } catch {} } });
+if (!acquireLock()) app.quit();
 else {
-  app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
+  diagnostic('Instance lock acquired');
   app.whenReady().then(async () => {
     diagnostic('Electron ready');
     fs.mkdirSync(dataPath, { recursive: true });

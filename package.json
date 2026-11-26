@@ -62,17 +62,6 @@
       "electron/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": ".next/standalone",
-        "to": "server",
-        "filter": [
-          "**/*",
-          "!**/.env*",
-          "!**/.lumiere-data/**"
-        ]
-      }
-    ],
     "mac": {
       "category": "public.app-category.entertainment",
       "target": [
@@ -94,6 +83,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "afterPack": "electron/after-pack.cjs"
   }
 }
