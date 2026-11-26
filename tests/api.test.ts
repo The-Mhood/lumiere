@@ -17,7 +17,7 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-const { db, pool } = await import("@/db");
+const { db, closeDb } = await import("@/db");
 const { users } = await import("@/db/schema");
 const { queryCatalogue, getTitleBySlug } = await import("@/lib/content");
 const register = (await import("@/app/api/auth/register/route")).POST;
@@ -31,7 +31,7 @@ const json = (url: string, method: string, body?: unknown) =>
 
 afterAll(async () => {
   await db.delete(users).where(eq(users.email, email));
-  await pool.end();
+  await closeDb();
 });
 
 describe("catalogue", () => {
@@ -59,11 +59,11 @@ describe("catalogue", () => {
     expect(t!.similar.length).toBeGreaterThan(0);
   });
 
-  it("returns series with seasons, episodes and per-episode sources", async () => {
+  it("returns series navigation without mislabeling unrelated demo films as episode sources", async () => {
     const s = await getTitleBySlug("caminandes");
     expect(s!.seasons.length).toBe(2);
     expect(s!.seasons[0].episodes.length).toBe(3);
-    expect(s!.seasons[0].episodes[0].sources.length).toBeGreaterThan(0);
+    expect(s!.seasons[0].episodes[0].sources).toEqual([]);
   });
 });
 

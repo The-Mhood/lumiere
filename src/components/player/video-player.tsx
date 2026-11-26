@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type shakaNs from "shaka-player";
 import type { PlayableSource } from "@/lib/streaming";
 import { Controls } from "./controls";
+import { useRouter } from "next/navigation";
 
 type Shaka = typeof shakaNs;
 type Player = shakaNs.Player;
@@ -38,12 +39,15 @@ const EMPTY: PlayerTrackState = { qualities: [], activeQuality: "auto", audio: [
 
 export function VideoPlayer(props: VideoPlayerProps) {
   const { sources, titleId, episodeId, loggedIn } = props;
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
   const shakaRef = useRef<Shaka | null>(null);
   const resumedRef = useRef(false);
 
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const positionRef = useRef(0);
   const [sourceId, setSourceId] = useState<number>(() => {
     const wanted = props.initialSourceId && sources.find((s) => s.id === props.initialSourceId);
     return wanted ? wanted.id : (sources[0]?.id ?? 0);
@@ -94,12 +98,16 @@ export function VideoPlayer(props: VideoPlayerProps) {
     const video = videoRef.current;
     if (!video || !source) return;
     let cancelled = false;
+    let failedOnce = false;
+    let cleanupMedia: (() => void) | undefined;
+    positionRef.current = video.currentTime || positionRef.current;
     setStatus("loading");
     setErrorMsg(null);
     setTracks(EMPTY);
 
     const onFail = (reason: string) => {
-      if (cancelled) return;
+      if (cancelled || failedOnce) return;
+      failedOnce = true;
       console.warn(`[player] source ${source.id} failed: ${reason}`);
       setFailed((prev) => {
         const next = new Set(prev).add(source.id);
@@ -119,7 +127,8 @@ export function VideoPlayer(props: VideoPlayerProps) {
       // Tear down previous
       if (playerRef.current) {
         try {
-          await playerRef.current.unload();
+          await playerRef.current.destroy();
+          playerRef.current = null;
         } catch {}
       }
       // Remove external text tracks from previous mp4 source
@@ -152,10 +161,11 @@ export function VideoPlayer(props: VideoPlayerProps) {
         video.addEventListener("loadedmetadata", onLoaded, { once: true });
         video.addEventListener("error", onErr, { once: true });
         video.load();
-        return () => {
+        cleanupMedia = () => {
           video.removeEventListener("loadedmetadata", onLoaded);
           video.removeEventListener("error", onErr);
         };
+        return;
       }
 
       // Adaptive (HLS / DASH) via Shaka
@@ -189,11 +199,17 @@ export function VideoPlayer(props: VideoPlayerProps) {
       video.removeAttribute("src");
       await player.attach(video);
       if (cancelled) return;
-      if (props.preferredAudio) player.configure({ preferredAudioLanguage: props.preferredAudio });
-      if (props.preferredSubtitle) player.configure({ preferredTextLanguage: props.preferredSubtitle });
+      const preferredAudio = localStorage.getItem("lumiere-audio") ?? props.preferredAudio;
+      const preferredSubtitle = localStorage.getItem("lumiere-subtitle") ?? props.preferredSubtitle;
+      if (preferredAudio) player.configure({ preferredAudioLanguage: preferredAudio });
+      if (preferredSubtitle) player.configure({ preferredTextLanguage: preferredSubtitle });
       try {
         await player.load(source.url);
         if (cancelled) return;
+        for (const track of source.subtitles) {
+          try { await player.addTextTrackAsync(track.url, track.lang, "subtitle", "text/vtt", undefined, track.label); }
+          catch { flash(`Subtitle unavailable: ${track.label}`); }
+        }
         setStatus("ready");
         refreshTracks();
       } catch (e) {
@@ -202,13 +218,18 @@ export function VideoPlayer(props: VideoPlayerProps) {
         onFail(`load error ${err.code}`);
       }
     };
-    const cleanupPromise = run();
+    const deadline = setTimeout(() => onFail("source loading timed out"), 30000);
+    const ready = () => clearTimeout(deadline);
+    video.addEventListener("loadeddata", ready, { once: true });
+    void run().catch((e) => onFail(String(e)));
     return () => {
       cancelled = true;
-      cleanupPromise.then((fn) => fn && fn());
+      clearTimeout(deadline);
+      video.removeEventListener("loadeddata", ready);
+      cleanupMedia?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source?.id]);
+  }, [source?.id, loadAttempt]);
 
   /* Destroy on unmount */
   useEffect(() => {
@@ -228,6 +249,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
       video.currentTime = props.resumeAt;
       flash(`Resumed from ${fmt(props.resumeAt)}`);
     }
+    if (resumedRef.current && positionRef.current > 0) video.currentTime = positionRef.current;
     resumedRef.current = true;
     video.play().catch(() => {});
   }, [status, props.resumeAt, flash]);
@@ -340,6 +362,9 @@ export function VideoPlayer(props: VideoPlayerProps) {
           const v = videoRef.current;
           if (v) v.paused ? v.play() : v.pause();
         }}
+        onEnded={() => {
+          if (props.nextHref && localStorage.getItem("lumiere-autoplay") !== "false") router.push(props.nextHref);
+        }}
         onDoubleClick={() => toggleFullscreen(containerRef.current)}
       />
       {status === "loading" && (
@@ -352,7 +377,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
           <div>
             <p className="font-display text-xl font-semibold">Playback unavailable</p>
             <p className="mt-2 max-w-md text-sm text-mist">{errorMsg}</p>
-            <button onClick={() => { setFailed(new Set()); setSourceId(sources[0].id); setStatus("loading"); }} className="mt-4 rounded-full bg-ember px-5 py-2 font-semibold text-ink">
+            <button onClick={() => { setFailed(new Set()); setSourceId(sources[0].id); setLoadAttempt((n) => n + 1); setStatus("loading"); }} className="mt-4 rounded-full bg-ember px-5 py-2 font-semibold text-ink">
               Retry
             </button>
           </div>

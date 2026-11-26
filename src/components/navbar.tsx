@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/movies?sort=rating", label: "Top Rated" },
   { href: "/movies?platform=internet-archive", label: "Classics" },
   { href: "/aggregators", label: "Platforms" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function Navbar({ user }: { user: NavUser }) {
@@ -32,12 +33,16 @@ export function Navbar({ user }: { user: NavUser }) {
   }, []);
 
   useEffect(() => {
+    // Close transient UI after route navigation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpen(false);
     setSuggest([]);
   }, [pathname]);
 
   useEffect(() => {
     if (q.trim().length < 2) {
+      // Reset the external search result when the query becomes empty.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuggest([]);
       return;
     }
@@ -45,7 +50,7 @@ export function Navbar({ user }: { user: NavUser }) {
     const t = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(q)}&limit=6`, { signal: ctrl.signal })
         .then((r) => r.json())
-        .then((d) => setSuggest(d.items ?? []))
+        .then((d) => setSuggest(d.data?.items ?? []))
         .catch(() => {});
     }, 200);
     return () => {

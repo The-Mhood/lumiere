@@ -28,7 +28,10 @@ export async function createSession(userId: number) {
   store.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // `Secure` cookies are rejected over plain http://127.0.0.1, which is how
+    // the desktop shell serves the app — so only set it when explicitly
+    // requested (web deployments behind HTTPS should set COOKIE_SECURE=true).
+    secure: process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false"),
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });

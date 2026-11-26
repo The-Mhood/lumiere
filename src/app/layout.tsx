@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { getCurrentUser } from "@/lib/auth";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const outfit = Outfit({ subsets: ["latin"], variable: "--font-display", display: "swap" });
+// Fonts: system stack (see globals.css `--font-sans` / `--font-display`).
+// The previous `next/font/google` setup fetched Inter/Outfit from
+// fonts.googleapis.com at build time, which broke offline builds and the
+// desktop shell. The CSS variables keep the same look with zero network
+// dependency; self-hosted fonts can be dropped into `public/fonts` later.
 
 export const metadata: Metadata = {
   title: { default: "Lumière — Stream films in up to 4K", template: "%s · Lumière" },
@@ -19,7 +21,7 @@ export const viewport: Viewport = { themeColor: "#07080c" };
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
+    <html lang="en">
       <body className="min-h-screen bg-ink text-snow antialiased">
         <Navbar user={user} />
         <main className="min-h-[70vh]">{children}</main>

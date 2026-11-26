@@ -89,6 +89,8 @@ export function Controls(p: Props) {
     }, 2800);
   };
   useEffect(() => {
+    // Resynchronize the controls visibility timer with media events.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     poke();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, menu]);
@@ -185,16 +187,7 @@ export function Controls(p: Props) {
       ? `Auto${p.tracks.qualities[0] ? ` · up to ${p.tracks.qualities[0].label}` : ""}`
       : p.tracks.qualities.find((q) => q.height === p.tracks.activeQuality)?.label ?? "Auto";
 
-  const Btn = ({ onClick, label, children, activeState }: { onClick: () => void; label: string; children: React.ReactNode; activeState?: boolean }) => (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={`grid h-10 w-10 place-items-center rounded-lg transition hover:bg-white/10 ${activeState ? "text-ember" : "text-snow"}`}
-    >
-      {children}
-    </button>
-  );
+
 
   return (
     <div
@@ -459,3 +452,14 @@ async function togglePip(v: HTMLVideoElement) {
     else await v.requestPictureInPicture();
   } catch {}
 }
+
+const Btn = ({ onClick, label, children, activeState }: { onClick: () => void; label: string; children: React.ReactNode; activeState?: boolean }) => (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`grid h-10 w-10 place-items-center rounded-lg transition hover:bg-white/10 ${activeState ? "text-ember" : "text-snow"}`}
+    >
+      {children}
+    </button>
+  );

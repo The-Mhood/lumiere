@@ -1,3 +1,4 @@
+import { curatedSourceMatches } from "./streaming/curated-matches";
 import { and, asc, desc, eq, ilike, inArray, ne, or, sql, SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -211,7 +212,7 @@ export async function getTitleBySlug(slug: string) {
     },
   });
 
-  const titleSources: PlayableSource[] = rankSources(rawSources.filter((r) => r.source.titleId && !r.source.episodeId).map(toRecord));
+  const titleSources: PlayableSource[] = rankSources(rawSources.filter((r) => r.source.titleId && !r.source.episodeId && (title.externalSource || curatedSourceMatches(title.slug, r.source.url))).map(toRecord));
   const episodeSources: Record<number, PlayableSource[]> = {};
   for (const r of rawSources) {
     if (!r.source.episodeId) continue;
@@ -232,7 +233,7 @@ export async function getTitleBySlug(slug: string) {
       ...s,
       episodes: episodeRows
         .filter((e) => e.seasonId === s.id)
-        .map((e) => ({ ...e, sources: episodeSources[e.id] ?? [] })),
+        .map((e) => ({ ...e, sources: title.externalSource || !title.slug.startsWith("caminandes") ? episodeSources[e.id] ?? [] : [] })),
     })),
     sources: titleSources,
     availability: availabilityRows,

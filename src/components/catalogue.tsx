@@ -46,17 +46,7 @@ function buildHref(base: string, q: CatalogueQuery, patch: Partial<CatalogueQuer
 export async function Catalogue({ base, query, heading, intro }: { base: string; query: CatalogueQuery; heading: string; intro?: string }) {
   const [result, genres, countries, years] = await Promise.all([queryCatalogue(query), listGenres(), listCountries(), listYears()]);
 
-  const Chip = ({ active, href, children }: { active: boolean; href: string; children: React.ReactNode }) => (
-    <Link
-      href={href}
-      scroll={false}
-      className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
-        active ? "border-ember bg-ember text-ink font-semibold" : "border-white/10 text-mist hover:border-white/30 hover:text-snow"
-      }`}
-    >
-      {children}
-    </Link>
-  );
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
@@ -131,3 +121,15 @@ export async function Catalogue({ base, query, heading, intro }: { base: string;
     </div>
   );
 }
+
+const Chip = ({ active, href, children }: { active: boolean; href: string; children: React.ReactNode }) => (
+    <Link
+      href={href}
+      scroll={false}
+      className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
+        active ? "border-ember bg-ember text-ink font-semibold" : "border-white/10 text-mist hover:border-white/30 hover:text-snow"
+      }`}
+    >
+      {children}
+    </Link>
+  );

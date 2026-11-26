@@ -1,5 +1,5 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "lumiere",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,9 +10,15 @@
     "test": "vitest run",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
-    "aggregate": "tsx --tsconfig tsconfig.json src/db/aggregate.ts"
+    "aggregate": "tsx --tsconfig tsconfig.json src/db/aggregate.ts",
+    "desktop:prepare": "npm run build && node scripts/prepare-desktop.mjs",
+    "desktop": "npm run desktop:prepare && electron .",
+    "desktop:pack": "npm run desktop:prepare && electron-builder --dir",
+    "desktop:mac": "npm run desktop:prepare && electron-builder --mac",
+    "desktop:win": "npm run desktop:prepare && electron-builder --win"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.6.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
@@ -26,16 +32,66 @@
     "vitest": "^5.1.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "drizzle-kit": "0.31.10",
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
     "eslint": "9.39.4",
     "eslint-config-next": "16.4.2",
     "postcss": "8.5.23",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
+  },
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Lumière desktop streaming catalogue and player",
+  "author": "Lumière",
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.lumiere.desktop",
+    "productName": "Lumière",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!**/.env*",
+          "!**/.lumiere-data/**"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "icon": "electron/assets/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Lumiere-${version}-${arch}-Setup.${ext}",
+      "icon": "electron/assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
