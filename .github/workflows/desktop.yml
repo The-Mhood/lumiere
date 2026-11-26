@@ -51,7 +51,7 @@ jobs:
       - name: Launch packaged application
         timeout-minutes: 6
         env:
-          LUMIERE_LIVE_MEDIA_TEST: '1' 
+          LUMIERE_LIVE_MEDIA_TEST: '1'
         shell: bash
         run: |
           set -o pipefail

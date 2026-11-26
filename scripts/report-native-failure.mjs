@@ -9,7 +9,7 @@ if (process.platform === 'darwin') {
   const path = await import('node:path');
   const directory = path.join(os.homedir(), 'Library/Logs/DiagnosticReports');
   try {
-    const names = fs.readdirSync(directory).filter((n) => n.normalize('NFD').startsWith('Lumie') && n.endsWith('.ips'));
+    const names = fs.readdirSync(directory).filter((n) => /lumi|electron/i.test(n.normalize('NFD')) && n.endsWith('.ips'));
     for (const name of names.slice(-2)) {
       const text = fs.readFileSync(path.join(directory, name), 'utf8');
       let summary = text.slice(0, 10000);

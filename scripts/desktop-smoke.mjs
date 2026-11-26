@@ -48,7 +48,7 @@ async function launch() {
   const deadline = Date.now() + 90000;
   let available = false;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null || child.signalCode) throw new Error(`Application exited during startup: ${output}`);
+    if (child.exitCode !== null || child.signalCode) throw new Error(`Application exited during startup (code=${child.exitCode}, signal=${child.signalCode}): ${output}`);
     try { const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) }); if (response.ok) { available = true; break; } } catch {}
     await new Promise((r) => setTimeout(r, 250));
   }
