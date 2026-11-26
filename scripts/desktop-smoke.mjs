@@ -33,7 +33,11 @@ async function closeApp() {
     // CDP is used only for the test. It avoids injecting a Node inspector into
     // a signed Electron main process (which can crash on macOS ARM).
     await writeFile(path.join(profile, 'smoke-quit'), 'quit');
-    await browser.close().catch(() => {}); browser = undefined;
+    // Wait for the app's own graceful exit, not Browser.close: on macOS a
+    // CDP close can wait indefinitely while the application remains alive.
+    const connection = browser;
+    browser = undefined;
+    void connection.close().catch(() => {});
   }
   let timer;
   try {
@@ -62,6 +66,8 @@ async function launch() {
   if (!available) throw new Error(`Application debugging endpoint did not start: ${output}`);
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
   const context = browser.contexts()[0];
+  context.setDefaultTimeout(20000);
+  context.setDefaultNavigationTimeout(45000);
   const page = context.pages()[0] || await context.waitForEvent('page', { timeout: 90000 });
   await page.waitForURL(/^http:\/\/127\.0\.0\.1:/, { timeout: 90000 });
   return page;
