@@ -36,13 +36,13 @@ npm run desktop:win   # Windows NSIS installer
 
 Output is in `release/` (ignored by Git). `.github/workflows/desktop.yml` builds on native macOS and Windows runners, launches each packaged executable, checks search/details/settings/restart plus live fallback playback, controls and media fullscreen, and uploads available installers. Workflow failures are release blockers, even when installer artifacts exist.
 
-On macOS software compositing is the default (`LUMIERE_ENABLE_GPU=1` opts in to hardware acceleration); this did not resolve the native startup failure.
+Hardware acceleration is enabled by default (`LUMIERE_DISABLE_GPU=1` is a diagnostic opt-out). macOS uses the ASCII bundle/executable name `Lumiere` with the accented display name, and reversible simple fullscreen for media to avoid Spaces transition races.
 
 The shell runs the bundled standalone Next server using Electron's utility process; users need neither Node nor a development server. It binds only to loopback, uses a stable per-install port for storage persistence, generates a private installation auth secret, stores the embedded DB under Electron's OS user-data directory, blocks new windows and off-origin top-level navigation, and stops the server on quit. Server diagnostics are in `server.log` in that directory. Window dimensions and maximization persist. Native and media fullscreen use the application display bounds.
 
 Installers are currently **unsigned** unless signing credentials are configured by the release team. Configure Apple Developer signing/notarization and Windows signing before public distribution. There is no automatic update service: install a newer version over the old version; application identity and user-data paths stay stable. Do not ship a database or `.env` file with an installer.
 
-After building a native package, run `node scripts/desktop-smoke.mjs`. Manual release gates still include complete MP4/HLS/DASH endpoint coverage, subtitles/audio/quality, episode playback/progression, signed installation and upgrade on both platforms. Windows live fallback/playback/control/fullscreen checks have passed; macOS launch has not. See `DELIVERY.md` for exact results and artifact links.
+After building a native package, run `node scripts/desktop-smoke.mjs`. Manual release gates still include complete MP4/HLS/DASH endpoint coverage, subtitles/audio/quality, episode playback/progression, signed installation and upgrade on both platforms. All nine curated movies and live fallback/playback/control/fullscreen/restart checks passed on Windows x64, macOS Intel and macOS Apple Silicon. See `DELIVERY.md` for exact results and artifact links.
 
 ## Source engine
 
@@ -58,10 +58,10 @@ The player handles source selection, bounded startup, fallback, retry, resume po
 
 ### Catalogue correctness / outstanding content work
 
-The earlier seed attached unrelated demo films/trailers to several titles and every Caminandes episode. Those mappings are rejected, including on existing databases. **All nine curated movies now resolve through the official Blender Open Movies API**, with verified public-file backups for metadata outages. Live video requests and packaged Windows playback have passed for every movie; see `DELIVERY.md` for the verification runs and updated installer. The adapter matches real Caminandes episode names, but episode playback/coverage is not yet verified and the fabricated second-season fixtures remain unavailable. The seed's existing metadata also requires editorial verification. Bundled covers are original typographic artwork, not official film posters.
+The earlier seed attached unrelated demo films/trailers to several titles and every Caminandes episode. Those mappings are rejected, including on existing databases. **All nine curated movies now resolve through the official Blender Open Movies API**, with verified public-file backups for metadata outages. Live video requests and packaged Windows/macOS (Intel and Apple Silicon) playback have passed for every movie; see `DELIVERY.md` for the verification runs and updated installer. The adapter matches real Caminandes episode names, but episode playback/coverage is not yet verified and the fabricated second-season fixtures remain unavailable. The seed's existing metadata also requires editorial verification. Bundled covers are original typographic artwork, not official film posters.
 
 A manually destructive catalogue reset requires `npm run db:seed -- --reset` and cascades into watch history/watchlists. Normal application startup never resets an existing catalogue. Schema bootstrap is idempotent, additive DDL matching `src/db/schema.ts`; future alterations require explicit versioned migrations.
 
 ## Delivery status
 
-This branch delivers a verified Windows test build and app/desktop infrastructure, **not a completed production release**. macOS builds exit with SIGTRAP before Electron is ready. See `DELIVERY.md`. Consult the native workflow results and complete the live-media/manual platform gates above before release. Do not represent unavailable catalogue mappings, unsigned builds, or unexecuted playback tests as completed features.
+This branch delivers verified Windows x64 and macOS Intel/Apple Silicon test builds with all nine curated movies starting in each packaged player, **not a signed production release**. Native acceptance passed at `cb36925` in [run 45909171541](https://github.com/The-Mhood/lumiere/actions/runs/45909171541). See `DELIVERY.md`. Consult the native workflow results and complete the live-media/manual platform gates above before release. Do not represent unavailable catalogue mappings, unsigned builds, or unexecuted playback tests as completed features.

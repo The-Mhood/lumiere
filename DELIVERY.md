@@ -1,35 +1,25 @@
 # Lumière implementation delivery — 2026-11-26
 
-## Current source-completion update
+## Cross-platform movie acceptance: PASS
 
-All **nine movies currently in the curated catalogue** now have matching official Blender sources: Big Buck Bunny, Sintel, Tears of Steel, Elephants Dream, Cosmos Laundromat, Spring, Agent 327: Operation Barbershop, Sprite Fright, and Charge. This is not a claim to cover every movie outside the catalogue.
+Verified application commit: `cb369255a88b7ab6597c1c4eae436c73018958c6` on `arena/e423f162-lumiere`.
+Native run: https://github.com/The-Mhood/lumiere/actions/runs/45909171541 — all three jobs succeeded.
 
-- Implementation checkpoint: `b67bb5a`.
-- **Windows full-catalogue playback: PASS.** All nine movies started in the packaged desktop player. Primary-source failure/fallback, pause, seek, media fullscreen, device settings and restart also passed.
-- Updated Windows installer: https://github.com/The-Mhood/lumiere/actions/runs/45900152114/artifacts/15156335102
-- Native verification run: https://github.com/The-Mhood/lumiere/actions/runs/45900152114 (Windows job succeeded; macOS has a separate unresolved launch blocker).
-- **Live source coverage: PASS**, including ranged video requests for every movie: https://github.com/The-Mhood/lumiere/actions/runs/45900152027
-- Local build, lint, type checking and **28 tests pass**. All nine also return official sources through the standalone title-detail API when the metadata network is unavailable.
+| Platform | Packaged app acceptance | Download |
+| --- | --- | --- |
+| Windows x64 | PASS | [NSIS installer artifact](https://github.com/The-Mhood/lumiere/actions/runs/45909171541/artifacts/15158644831) |
+| macOS Apple Silicon | PASS | [DMG / ZIP artifact](https://github.com/The-Mhood/lumiere/actions/runs/45909171541/artifacts/15159134689) |
+| macOS Intel | PASS | [DMG / ZIP artifact](https://github.com/The-Mhood/lumiere/actions/runs/45909171541/artifacts/15158624819) |
 
-`src/lib/streaming/blender.ts` resolves official-channel metadata on demand, checks title/year identity and full-film duration, rejects trailers/documentaries and untrusted media/caption hosts, supports official remastered editions, and normalizes public HLS/MP4/VTT. URLs are not written to the catalogue DB. `blender-verified.json` contains only stable public MP4 file URLs, with verification provenance, for metadata-outage fallback; these are not signed or expiring stream tokens.
+All **nine movies currently in the curated catalogue** started in the packaged player on each platform: Big Buck Bunny, Sintel, Tears of Steel, Elephants Dream, Cosmos Laundromat, Spring, Agent 327: Operation Barbershop, Sprite Fright, and Charge. This does not claim coverage of movies outside this catalogue or end-to-end viewing of each entire film.
 
-Title details, detail API and watch pages now expose the same resolver output. Real Caminandes episode names are supported by the adapter, but episode coverage is **not** part of the all-movie pass above; the pre-existing fabricated second-season fixtures are still unavailable rather than mapped to unrelated films.
+Each platform also passed search, detail pages, device preferences, forced primary-source failure and fallback playback, pause, seek, media fullscreen entry/display bounds/exit, and restart persistence. Native packages include the backend and require no user-installed Node/server. These tests launch the packaged executable; they do not automate installer installation/upgrade.
 
-The earlier missing-movie-source blocker below is superseded for these nine movies. macOS startup, full subtitle/audio/quality coverage, real episode playback and public-release signing/installation validation remain open.
+The macOS pre-ready SIGTRAP was resolved with ASCII bundle/executable identity `Lumiere`, retaining the accented display name. The later media-fullscreen exit hang was resolved by separating HTML fullscreen from macOS Spaces animations and using reversible simple fullscreen. Hardware acceleration is enabled normally; `LUMIERE_DISABLE_GPU=1` is the diagnostic opt-out.
 
-## Earlier verified checkpoint (historical)
+Live source range verification for all nine passed separately: https://github.com/The-Mhood/lumiere/actions/runs/45900152027. The native jobs also passed type checking and all 28 unit tests; local lint passed.
 
-Application source: `9cc202a` on `arena/e423f162-lumiere` (later documentation-only commits do not change these binaries).
-
-Native verification: https://github.com/The-Mhood/lumiere/actions/runs/45895665726
-
-- **Windows x64: PASS.** NSIS installer built. Packaged executable launched its own bundled backend. Automated checks passed search, movie/series detail pages, device settings, restart persistence, forced primary-source failure followed by live fallback playback, pause, seek, and media fullscreen dimensions.
-- Windows test installer artifact: https://github.com/The-Mhood/lumiere/actions/runs/45895665726/artifacts/15153945911
-- **macOS Intel: FAIL at launch.** DMG and ZIP built, but executable exits with `SIGTRAP` before Electron's ready event. macOS ARM builds in earlier runs failed at the same startup stage. Do not distribute the macOS builds as working applications.
-- macOS failed job: https://github.com/The-Mhood/lumiere/actions/runs/45895665726/job/140168802878
-- Local production server build, TypeScript, ESLint and **21 tests pass**. Production dependency audit reports **zero known vulnerabilities**. Development/build tooling still has moderate audit findings; those are not a clean full-tree audit.
-
-The Windows test launched the packaged executable, not the NSIS installation flow. Signing, real installation/upgrade, and OS security-prompt behavior still require release testing.
+`src/lib/streaming/blender.ts` resolves official metadata, checks title/year identity and full-film duration, rejects unrelated trailers/documentaries and untrusted hosts, and normalizes public HLS/MP4/VTT sources. `blender-verified.json` provides verified stable public MP4 URLs for metadata outages, not extracted protected tokens. Title details, the detail API, and watch pages share the resolver.
 
 ## Implemented
 
@@ -42,14 +32,14 @@ The Windows test launched the packaged executable, not the NSIS installation flo
 - Added Electron startup/server lifecycle, loopback-only backend, per-install secret/data storage, stable storage origin, window persistence, navigation/popup restrictions, native build scripts and CI smoke/live-media tests.
 - Patched Next.js security advisories; stopped tracking the development `.env` and rejected insecure production signing-key defaults.
 
-## Remaining release blockers
+## Remaining public-release gates
 
-1. **macOS startup:** `SIGTRAP` before `app.whenReady()` resolves, on both tested processor architectures. Ad-hoc signing, explicit JIT/library entitlements, disabling hardware acceleration, multiple macOS runner versions and removing the native singleton broker did not resolve it. Native crash capture did not yield an actionable report. Last desktop diagnostic records main-process startup and acquisition of the filesystem instance lock, but never records `Electron ready`.
-2. **Catalogue content correctness:** original fixtures attached unrelated films/trailers to several titles and every Caminandes episode. These are now rejected, not represented as working sources. Matching movie mappings remain for Big Buck Bunny, Sintel, Tears of Steel and Elephants Dream. Other curated titles/episodes need actual matching sources. Episode selection/navigation and autoplay code are present, but real TV playback/progression is not acceptance-tested.
-3. **Playback coverage:** live Windows fallback playback/control/fullscreen checks passed. Subtitle display, audio/quality switching, all formats/endpoints and recovery during long playback still need complete end-to-end coverage.
-4. **Public release:** Windows is unsigned; macOS builds are ad-hoc signed for CI, not Developer-ID signed/notarized. No automatic update service is configured. Installer installation/upgrade needs target-machine validation.
+- **Signing and installation:** Windows is unsigned; macOS is CI ad-hoc signed, not Developer-ID signed/notarized. Target-machine installation, upgrade and OS security prompts require release-team testing. No automatic updater is configured.
+- **Extended playback:** complete MP4/HLS/DASH endpoint coverage, subtitle rendering, audio/quality switching and long-duration recovery are not certified by these smoke tests.
+- **Episodes:** real Caminandes names have adapter support, but actual episode playback/progression is not acceptance-tested. Fabricated second-season fixtures remain unavailable rather than mapped to unrelated media.
+- **Editorial:** existing catalogue metadata still needs editorial review; bundled covers are original typographic artwork, not official posters.
 
-This is **not a completed production-ready cross-platform release**. The working Windows test build and implemented platform infrastructure are delivered; the macOS launch failure and remaining gates above remain open.
+The nine-movie cross-platform acceptance goal is met. These remaining gates mean this is still a **test release, not a signed production-ready public release**. Older reports of macOS launch failure and missing curated-movie sources are superseded by the run above.
 
 ## Running / building
 
