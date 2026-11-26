@@ -79,9 +79,11 @@ try {
   if (process.env.LUMIERE_LIVE_MEDIA_TEST === '1') {
     console.log('Checking live playback with primary-source failure');
     let primaryBlocked = false;
-    const blockedMaster = '**/object-storage/streaming_playlists/hls/**/*master.m3u8';
-    await page.route(blockedMaster, (route) => { primaryBlocked = true; return route.abort('failed'); });
-    await page.route('**/akamai/bbb_30fps/bbb_30fps.mpd', (route) => { primaryBlocked = true; return route.abort('failed'); });
+    const resolved = await page.request.get(`${origin}/api/titles/big-buck-bunny/sources`);
+    const primary = (await resolved.json()).sources[0];
+    if (!primary?.url) throw new Error('No primary source resolved for fallback test');
+    const blockPrimary = (url) => url.href === primary.url;
+    await page.route(blockPrimary, (route) => { primaryBlocked = true; return route.abort('failed'); });
     await page.goto(`${origin}/watch/big-buck-bunny`);
     const video = page.locator('video');
     await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 100000 }).toBeGreaterThanOrEqual(2);
@@ -103,7 +105,7 @@ try {
     if (!fillsWindow) throw new Error('Media fullscreen does not fill the app display');
     await page.evaluate(() => document.exitFullscreen());
     console.log('PASS: live source fallback, playback, pause, seek and media fullscreen.');
-    await page.unroute(blockedMaster);
+    await page.unroute(blockPrimary);
     const movies = ['sintel', 'tears-of-steel', 'elephants-dream', 'cosmos-laundromat', 'spring', 'agent-327-operation-barbershop', 'sprite-fright', 'charge'];
     for (const slug of movies) {
       console.log(`Checking full catalogue playback: ${slug}`);
