@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { watchProgress } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getTitleBySlug } from "@/lib/content";
+import { resolveOwnedSitePlayback } from "@/lib/playback-resolver";
 import { VideoPlayer } from "@/components/player/video-player";
 import { SeasonBrowser } from "@/components/season-browser";
 import { Rail, TitleCard } from "@/components/title-card";
@@ -32,7 +33,15 @@ export default async function WatchPage({
   if (title.kind === "series" && !episode) episode = allEpisodes[0];
   if (title.kind === "series" && !episode) notFound();
 
-  const sources = episode ? episode.sources : title.sources;
+  // Resolve playback only when the watch page is opened. These URLs are request-scoped
+  // and are never inserted into PostgreSQL. Keep existing curated sources as fallback.
+  const resolvedSources = await resolveOwnedSitePlayback({
+    title: title.name,
+    year: title.year,
+    episode: episode?.name,
+  });
+  const storedSources = episode ? episode.sources : title.sources;
+  const sources = [...resolvedSources, ...storedSources];
   const idx = episode ? allEpisodes.findIndex((e) => e.id === episode!.id) : -1;
   const prev = idx > 0 ? allEpisodes[idx - 1] : undefined;
   const next = idx >= 0 && idx < allEpisodes.length - 1 ? allEpisodes[idx + 1] : undefined;
