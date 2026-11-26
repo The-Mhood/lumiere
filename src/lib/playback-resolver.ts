@@ -72,15 +72,31 @@ async function candidatePages(site: (typeof SITES)[number], input: ResolveInput)
     } catch {}
   }
 
-  const terms = slug(input.episode ? `${input.title} ${input.episode}` : input.title).split("-").filter((x) => x.length > 2);
-  return all.filter((url) => {
+  // Resolve the series page by series title first. Combining the episode name
+  // into the sitemap query can hide valid series pages whose URL only contains
+  // the show title (e.g. Black Mirror).
+  const titleTerms = slug(input.title).split("-").filter((x) => x.length > 2);
+  const episodeTerms = slug(input.episode ?? "").split("-").filter((x) => x.length > 2);
+  const titleMatches = all.filter((url) => {
     try {
       const u = new URL(url);
       if (u.origin !== site.origin) return false;
       const path = slug(decodeURIComponent(u.pathname));
-      return terms.length > 0 && terms.filter((term) => path.includes(term)).length >= Math.min(2, terms.length);
+      return titleTerms.length > 0 &&
+        titleTerms.filter((term) => path.includes(term)).length >= Math.min(2, titleTerms.length);
     } catch { return false; }
-  }).slice(0, 8);
+  });
+
+  // Prefer episode-specific pages when their URL contains the episode name,
+  // but always fall back to the matching series page.
+  if (!episodeTerms.length) return titleMatches.slice(0, 8);
+  const episodeMatches = titleMatches.filter((url) => {
+    try {
+      const path = slug(decodeURIComponent(new URL(url).pathname));
+      return episodeTerms.some((term) => path.includes(term));
+    } catch { return false; }
+  });
+  return (episodeMatches.length ? episodeMatches : titleMatches).slice(0, 8);
 }
 
 function extractSources(html: string, pageUrl: string, site: (typeof SITES)[number]): PlayableSource[] {
