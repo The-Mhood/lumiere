@@ -83,7 +83,8 @@ async function upsertTitle(
     const p = providerMap.get(s.providerSlug);
     return p && p.authorized && hostAllowed(s.url, p.allowedHosts) && detectFormat(s.url) === s.format;
   });
-  // Catalogue metadata is useful on its own. A title must not be discarded\n  // merely because it has no playable source or provider availability yet.
+  // Catalogue metadata is useful on its own. A title must not be discarded
+  // merely because it has no playable source or provider availability yet.
 
   const [existing] = await db
     .select({ id: titles.id })
