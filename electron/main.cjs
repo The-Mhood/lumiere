@@ -3,10 +3,9 @@ const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const net = require('node:net');
-// Virtualized macOS runners and some Intel/ARM driver combinations cannot
-// initialize Chromium's GPU compositor. Software compositing is the safe
-// default on macOS; a validated deployment can opt in to GPU acceleration.
-if (process.platform === 'darwin' && process.env.LUMIERE_ENABLE_GPU !== '1') app.disableHardwareAcceleration();
+// Hardware acceleration remains enabled for video decoding on both platforms.
+// Explicit opt-out is available for machines with a broken graphics driver.
+if (process.env.LUMIERE_DISABLE_GPU === '1') app.disableHardwareAcceleration();
 let server;
 let window;
 let origin;

@@ -18,6 +18,16 @@ const profile = await mkdtemp(path.join(os.tmpdir(), 'lumiere-smoke-'));
 let child;
 let browser;
 let output = '';
+let stage = 'initializing';
+function progress(message) { stage = message; console.log(message); }
+const watchdog = setTimeout(async () => {
+  console.error('Smoke test stalled at:', stage);
+  console.error('Application output:', output);
+  for (const name of ['desktop.log', 'server.log']) { try { console.error(name, (await readFile(path.join(profile, name), 'utf8')).slice(-12000)); } catch {} }
+  child?.kill('SIGKILL');
+  process.exit(1);
+}, 240000);
+watchdog.unref();
 async function freePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer(); server.on('error', reject);
@@ -73,24 +83,24 @@ async function launch() {
   return page;
 }
 try {
-  console.log('Launching packaged executable');
+  progress('Launching packaged executable');
   let page = await launch();
   const origin = new URL(page.url()).origin;
-  console.log('Checking search');
+  progress('Checking search');
   await page.goto(`${origin}/search?q=sintel`);
   await page.getByText('Sintel', { exact: true }).first().waitFor();
-  console.log('Checking title pages');
+  progress('Checking title pages');
   await page.goto(`${origin}/title/sintel`);
   await page.getByRole('heading', { name: 'Sintel', exact: true }).waitFor();
   await page.goto(`${origin}/title/caminandes`);
   await page.getByRole('heading', { name: 'Caminandes', exact: true }).waitFor();
-  console.log('Checking device settings');
+  progress('Checking device settings');
   await page.goto(`${origin}/settings`);
   await page.getByRole('checkbox').uncheck();
   await page.getByRole('button', { name: 'Save preferences' }).click();
   await page.getByRole('status').filter({ hasText: 'Saved' }).waitFor();
   if (process.env.LUMIERE_LIVE_MEDIA_TEST === '1') {
-    console.log('Checking live playback with primary-source failure');
+    progress('Checking live playback with primary-source failure');
     let primaryBlocked = false;
     const resolved = await page.request.get(`${origin}/api/titles/big-buck-bunny/sources`);
     const primary = (await resolved.json()).sources[0];
@@ -99,16 +109,28 @@ try {
     await page.route(blockPrimary, (route) => { primaryBlocked = true; return route.abort('failed'); });
     await page.goto(`${origin}/watch/big-buck-bunny`);
     const video = page.locator('video');
-    await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 100000 }).toBeGreaterThanOrEqual(2);
-    if (await video.evaluate((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
-    await expect.poll(() => video.evaluate((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
+    async function mediaState(fn) {
+      let timer;
+      try {
+        return await Promise.race([video.evaluate(fn), new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Renderer unresponsive during: ${stage}`)), 15000);
+        })]);
+      } finally { clearTimeout(timer); }
+    }
+    progress('Waiting for video metadata after primary-source failure');
+    await expect.poll(() => mediaState((v) => v.readyState), { timeout: 100000 }).toBeGreaterThanOrEqual(2);
+    progress('Checking playback starts');
+    if (await mediaState((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
+    await expect.poll(() => mediaState((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
     if (!primaryBlocked) throw new Error('Primary-source failure interception was not exercised');
+    progress('Checking pause and seek controls');
     await page.mouse.move(300, 300);
     await page.getByRole('button', { name: 'Pause (k)', exact: true }).click();
-    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
-    const before = await video.evaluate((v) => v.currentTime);
+    await expect.poll(() => mediaState((v) => v.paused)).toBe(true);
+    const before = await mediaState((v) => v.currentTime);
     await page.keyboard.press('ArrowRight');
-    await expect.poll(() => video.evaluate((v) => v.currentTime)).toBeGreaterThan(before + 3);
+    await expect.poll(() => mediaState((v) => v.currentTime)).toBeGreaterThan(before + 3);
+    progress('Checking media fullscreen');
     await page.getByRole('button', { name: 'Fullscreen (f)', exact: true }).click();
     await page.waitForFunction(() => !!document.fullscreenElement);
     const fillsWindow = await page.evaluate(() => {
@@ -121,22 +143,22 @@ try {
     await page.unroute(blockPrimary);
     const movies = ['sintel', 'tears-of-steel', 'elephants-dream', 'cosmos-laundromat', 'spring', 'agent-327-operation-barbershop', 'sprite-fright', 'charge'];
     for (const slug of movies) {
-      console.log(`Checking full catalogue playback: ${slug}`);
+      progress(`Checking full catalogue playback: ${slug}`);
       await page.goto(`${origin}/watch/${slug}`);
-      await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 90000 }).toBeGreaterThanOrEqual(2);
-      if (await video.evaluate((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
-      await expect.poll(() => video.evaluate((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
+      await expect.poll(() => mediaState((v) => v.readyState), { timeout: 90000 }).toBeGreaterThanOrEqual(2);
+      if (await mediaState((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
+      await expect.poll(() => mediaState((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
       console.log(`PASS: ${slug} playback`);
     }
     console.log('::notice title=Movie playback coverage::PASS: all nine curated movies started in the packaged desktop player');
   }
-  console.log('Closing and restarting packaged executable');
+  progress('Closing and restarting packaged executable');
   await closeApp();
   await new Promise((r) => setTimeout(r, 1000));
   page = await launch();
   await page.goto(`${new URL(page.url()).origin}/settings`);
   await expect(page.getByRole('checkbox')).not.toBeChecked();
-  console.log('PASS: independently launched package, search, details, settings and restart.');
+  progress('PASS: independently launched package, search, details, settings and restart.');
   console.log('Subtitles, audio/quality, episode playback and signed installation remain manual release gates.');
 } catch (error) {
   console.error('Smoke failure:', error);
@@ -146,6 +168,7 @@ try {
   }
   throw error;
 } finally {
+  clearTimeout(watchdog);
   await closeApp();
   await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }).catch((e) => console.warn('Temporary profile cleanup:', e.message));
 }
