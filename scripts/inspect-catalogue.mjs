@@ -6,7 +6,7 @@ for (const name of ['home', 'detail']) {
   console.log('::notice title=Catalogue inspection::' + JSON.stringify(report).replaceAll('%', '%25').replaceAll('\n', '%0A').replaceAll('\r', '%0D'));
 }
 const home = load(readFileSync('catalogue-report/home.html', 'utf8'));
-const cards = home('a[href*="/movie/"], a[href*="/series/"]').map((_, e) => home(e).toString()).get().join('\n');
+const cards = home('a[href*="/movie/"], a[href*="/series/"]').map((_, e) => { const a = home(e); const image = a.find('img').first(); return '<a href=' + JSON.stringify(a.attr('href')) + '><img alt=' + JSON.stringify(image.attr('alt') || '') + ' src=' + JSON.stringify(image.attr('src') || '') + '></a>'; }).get().join('\n');
 const { gzipSync } = await import('node:zlib');
 const payload = gzipSync(cards).toString('base64');
 if (payload.length > 55000) throw new Error('Catalogue snapshot exceeds annotation limit');
