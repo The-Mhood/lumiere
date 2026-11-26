@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #07080c;
+  --color-ink-800: #0d0f16;
+  --color-ink-700: #141722;
+  --color-ink-600: #1c2030;
+  --color-ink-500: #2a2f44;
+  --color-mist: #a7adc4;
+  --color-snow: #f3f4fa;
+  --color-ember: #ff5c38;
+  --color-ember-600: #e64a28;
+  --color-gold: #f5c451;
+  --font-display: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-snow);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Horizontal rails */
+.rail {
+  display: flex;
+  gap: 0.875rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+}
+
+.poster-shimmer {
+  background: linear-gradient(110deg, #141722 8%, #1c2030 18%, #141722 33%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position-x: -200%;
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.5s ease both;
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Player range inputs */
+input[type="range"].seek {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color-ember) var(--value, 0%), rgba(255, 255, 255, 0.25) var(--value, 0%));
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+input[type="range"].seek:hover::-webkit-slider-thumb,
+input[type="range"].seek:focus::-webkit-slider-thumb {
+  opacity: 1;
+}
+input[type="range"].seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ember);
+  outline-offset: 2px;
+}

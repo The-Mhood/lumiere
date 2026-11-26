@@ -1,0 +1,7 @@
+import { aggregatorStatus } from "@/lib/aggregators";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  return Response.json(await aggregatorStatus());
+}
