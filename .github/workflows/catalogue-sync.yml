@@ -1,0 +1,26 @@
+name: External catalogue sync
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Inspect public catalogue and player markup
+        run: |
+          mkdir -p catalogue-report
+          curl --fail --location --max-time 30 https://cinejoy.pk/ -o catalogue-report/home.html
+          curl --fail --location --max-time 30 https://cinejoy.pk/movie/27205-inception-2010 -o catalogue-report/detail.html
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: external-catalogue-report
+          path: catalogue-report/
