@@ -24,7 +24,7 @@ export default async function AggregatorsPage() {
                 <p className="mt-1 text-sm text-mist">{a.description}</p>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${a.configured ? "bg-emerald-500/15 text-emerald-300" : "bg-gold/15 text-gold"}`}>
-                {a.configured ? "Ready" : "Needs API key"}
+                {a.configured ? "Ready" : a.key === "cinejoy" ? "Needs rendered sync" : "Needs API key"}
               </span>
             </div>
             <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
@@ -34,6 +34,9 @@ export default async function AggregatorsPage() {
             </dl>
             {!a.configured && a.key === "tmdb" && (
               <p className="mt-3 rounded-lg bg-white/5 p-3 text-xs text-mist">Set <code>TMDB_API_KEY</code> (and optionally <code>TMDB_REGIONS=PK,US</code>) to enable Netflix / Prime / Apple TV / Disney+ availability links.</p>
+            )}
+            {a.key === "cinejoy" && (
+              <p className="mt-3 rounded-lg bg-white/5 p-3 text-xs text-mist">Catalogue metadata only; playback is not verified. Refresh the browser-rendered snapshot with the external catalogue sync worker. Set <code>CINEJOY_RENDERED_HTML</code> to its HTML output to re-import locally.</p>
             )}
             <div className="mt-4"><SyncButton adapter={a.key} disabled={!a.configured} /></div>
           </div>

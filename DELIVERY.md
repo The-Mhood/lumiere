@@ -44,3 +44,31 @@ The nine-movie cross-platform acceptance goal is met. These remaining gates mean
 ## Running / building
 
 See `README.md` and `.env.example`. `npm run dev -- --hostname 0.0.0.0` starts development without an external DB. `npm run desktop:prepare` creates the standalone server. Native build commands are `npm run desktop:win` and `npm run desktop:mac`; native CI contains the explicit ad-hoc macOS test signing flags. User data is outside the installed app; never bundle a development database or `.env`.
+
+## Cinejoy integration update — catalogue only, not playback completion
+
+The expanded scope (all-source mainstream movie playback) is **not complete**.
+The legacy Python helper is not used by the application. A TypeScript Cinejoy
+catalogue adapter is now registered and tested; it imports movie/series identities,
+posters and external availability links, never fictitious playback URLs.
+
+The preview database contains 128 listings imported from a real rendered Cinejoy
+homepage. The homepage has a dedicated catalogue rail, and search/details work.
+A repeated import updated all 128 without duplicates. Catalogue-only items carry
+a LISTING badge instead of an invented playback quality.
+
+Cinejoy's initial HTTP document is an empty SPA shell. The browser worker in
+`scripts/render-catalogue.mjs` produces `catalogue-report/home.html`; import using
+`npx tsx scripts/sync-external-catalogue.ts catalogue-report/home.html`.
+Install its browser first with `npx playwright install chromium`.
+Set `CINEJOY_RENDERED_HTML` to that rendered HTML path to enable local re-import
+from the aggregators page. Re-importing the snapshot does not refresh upstream;
+rerun the browser worker to obtain fresh listings. The external-catalogue workflow
+verifies rendering and imports into an ephemeral database. No extracted application
+keys or third-party account credentials are used.
+
+Playback inspection found public info/server discovery at `api2.wing.st`; actual
+playback invokes a separate `/g` flow alongside a WASM module. No working Lumière
+adapter for that playback flow is implemented or certified. The nine official
+Blender films remain the verified in-app playback coverage. The 128 listings must
+not be described as 128 playable films or a completed Cinejoy integration.

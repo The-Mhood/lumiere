@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? "").split(",").map((host) => host.trim()).filter(Boolean),
   // `standalone` produces a self-contained server (`.next/standalone/server.js`)
   // that the Electron desktop shell launches — no separate Node install needed.
   output: "standalone",

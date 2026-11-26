@@ -1,4 +1,5 @@
 import { load } from "cheerio";
+import { readFile } from "node:fs/promises";
 import type { AggregatedTitle, AggregatorAdapter } from "./types";
 
 const ORIGIN = "https://cinejoy.pk";
@@ -39,33 +40,19 @@ export function parseCinejoyCatalogue(html: string): AggregatedTitle[] {
   return [...items.values()];
 }
 
-export async function fetchCinejoyPage(path: string, signal?: AbortSignal) {
-  const url = new URL(path, ORIGIN);
-  if (url.origin !== ORIGIN) throw new Error('Unexpected catalogue origin');
-  const response = await fetch(url, {
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
-    redirect: 'error', headers: { 'User-Agent': 'Lumiere-Catalogue/1.0', Accept: 'text/html' },
-  });
-  if (!response.ok) throw new Error(`Cinejoy catalogue HTTP ${response.status}`);
-  const body = await response.text();
-  if (body.length > 8_000_000) throw new Error('Catalogue response too large');
-  return body;
-}
-
 export const cinejoyAdapter: AggregatorAdapter = {
   key: 'cinejoy', name: 'Cinejoy catalogue',
   description: 'Public movie and series listings. Catalogue presence does not imply verified in-app playback.',
-  configured: () => true, providers: [],
+  configured: () => Boolean(process.env.CINEJOY_RENDERED_HTML), providers: [],
   async fetchCatalogue(ctx) {
-    const found = new Map<string, AggregatedTitle>();
-    const limit = Math.max(1, Math.min(500, ctx.limit));
-    for (const path of ['/', '/category/movie/trending', '/category/tv/trending']) {
-      const items = parseCinejoyCatalogue(await fetchCinejoyPage(path));
-      ctx.log(`${path}: ${items.length} public listings`);
-      for (const item of items) found.set(item.externalId, item);
-      if (found.size >= limit) break;
+    // The upstream is a client-rendered SPA. A browser sync worker supplies
+    // its rendered snapshot; never claim the empty HTTP shell is a catalogue.
+    if (process.env.CINEJOY_RENDERED_HTML) {
+      const items = parseCinejoyCatalogue(await readFile(process.env.CINEJOY_RENDERED_HTML, 'utf8'));
+      if (!items.length) throw new Error('Rendered Cinejoy snapshot contains no listings');
+      ctx.log(`Rendered snapshot: ${items.length} listings`);
+      return items.slice(0, Math.max(1, Math.min(500, ctx.limit)));
     }
-    if (!found.size) throw new Error('Cinejoy returned no recognizable catalogue listings (layout changed or blocked)');
-    return [...found.values()].slice(0, limit);
+    throw new Error('Cinejoy requires a browser-rendered snapshot. Run the external catalogue worker and set CINEJOY_RENDERED_HTML.');
   },
 };

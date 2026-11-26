@@ -24,6 +24,9 @@ jobs:
           curl --fail --location --max-time 30 https://cinejoy.pk/movie/27205-inception-2010 -o catalogue-report/detail.html
       - run: npx playwright install --with-deps chromium
       - run: node scripts/render-catalogue.mjs
+      - run: npx tsx scripts/sync-external-catalogue.ts catalogue-report/home.html
+        env:
+          LUMIERE_DATA_DIR: memory
       - run: node scripts/inspect-catalogue.mjs
       - uses: actions/upload-artifact@v4
         if: always()

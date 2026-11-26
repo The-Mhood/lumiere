@@ -107,7 +107,7 @@ async function upsertTitle(
     posterUrl: t.posterUrl,
     backdropUrl: t.backdropUrl ?? t.posterUrl,
     license: t.license,
-    maxQuality: bestResolution(validSources.flatMap((s) => s.resolutions)),
+    maxQuality: validSources.length ? bestResolution(validSources.flatMap((s) => s.resolutions)) : "unverified",
     externalSource: t.externalSource,
     externalId: t.externalId,
   };
@@ -183,7 +183,7 @@ export async function runAggregation(adapterKey: string, limit = 40, catalogue?:
   let imported = 0, updated = 0, skipped = 0;
 
   try {
-    if (!adapter.configured()) throw new Error(`${adapter.name} is not configured (missing API credentials).`);
+    if (!catalogue && !adapter.configured()) throw new Error(`${adapter.name} is not configured (missing required integration settings).`);
     const providerMap = await ensureProviders(adapter);
     const items = catalogue ?? await adapter.fetchCatalogue({ limit, log });
     const genreMap = await ensureGenres([...new Set(items.flatMap((i) => i.genres))]);
