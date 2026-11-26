@@ -10,6 +10,12 @@ let quitting = false;
 if (process.env.LUMIERE_USER_DATA_DIR) app.setPath('userData', process.env.LUMIERE_USER_DATA_DIR);
 const dataPath = app.getPath('userData');
 const settingsPath = path.join(dataPath, 'window.json');
+fs.mkdirSync(dataPath, { recursive: true });
+function diagnostic(message) { fs.appendFileSync(path.join(dataPath, 'desktop.log'), `${new Date().toISOString()} ${message}\n`); }
+diagnostic('Main process started');
+// Trusted parent-process smoke control; never exposed to renderer content.
+if (process.env.LUMIERE_SMOKE_TEST === '1') process.stdin.on('data', (data) => { if (String(data).trim() === 'quit') app.quit(); });
+process.on('uncaughtException', (error) => { diagnostic(error.stack || String(error)); app.exit(1); });
 function settings() { try { return JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch { return {}; } }
 function saveWindow() {
   if (!window || window.isDestroyed()) return;
@@ -67,6 +73,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
   app.whenReady().then(async () => {
+    diagnostic('Electron ready');
     fs.mkdirSync(dataPath, { recursive: true });
     session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(permission === 'fullscreen'));
     Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -74,7 +81,7 @@ else {
       { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
       { role: 'editMenu' }, { role: 'windowMenu' },
     ]));
-    try { await startServer(); openWindow(); } catch (e) { dialog.showErrorBox('Lumière startup failed', e.message); app.quit(); }
+    try { await startServer(); diagnostic('Server ready'); openWindow(); } catch (e) { diagnostic(`Startup failed: ${e.stack || e.message}`); dialog.showErrorBox('Lumière startup failed', e.message); app.quit(); }
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0 && origin) openWindow(); });
   });
   app.on('before-quit', () => { quitting = true; server?.kill(); });

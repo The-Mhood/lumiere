@@ -1,18 +1,62 @@
-import { _electron as electron, expect } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { readdir, mkdtemp, rm, readFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import net from 'node:net';
 import path from 'node:path';
 import os from 'node:os';
-import assert from 'node:assert/strict';
 const dirs = await readdir('release');
 const exe = process.platform === 'win32' ? path.resolve('release/win-unpacked/Lumière.exe') :
   path.resolve('release', dirs.find((d) => d === 'mac' || d.startsWith('mac-')), 'Lumière.app/Contents/MacOS/Lumière');
 const profile = await mkdtemp(path.join(os.tmpdir(), 'lumiere-smoke-'));
-let app;
+let child;
+let browser;
+let output = '';
+async function freePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer(); server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); });
+  });
+}
+async function closeApp() {
+  if (!child) return;
+  const process = child;
+  child = undefined;
+  const exited = new Promise((resolve) => process.once('exit', resolve));
+  if (browser) {
+    // CDP is used only for the test. It avoids injecting a Node inspector into
+    // a signed Electron main process (which can crash on macOS ARM).
+    process.stdin.write('quit\n');
+    await browser.close().catch(() => {}); browser = undefined;
+  }
+  let timer;
+  try {
+    if (process.exitCode !== null || process.signalCode) return;
+    await Promise.race([exited, new Promise((_, reject) => {
+      timer = setTimeout(() => { process.kill('SIGKILL'); reject(new Error('Packaged application did not shut down')); }, 15000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
 async function launch() {
-  app = await electron.launch({ executablePath: exe, args: [`--user-data-dir=${profile}`], env: { ...process.env, LUMIERE_USER_DATA_DIR: profile }, timeout: 90000 });
-  const page = await app.firstWindow({ timeout: 90000 });
+  const port = await freePort();
+  output = '';
+  child = spawn(exe, [`--remote-debugging-port=${port}`, '--enable-logging=stderr'], {
+    env: { ...process.env, LUMIERE_USER_DATA_DIR: profile, LUMIERE_SMOKE_TEST: '1' }, stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  child.stdout.on('data', (d) => { output += d; });
+  child.stderr.on('data', (d) => { output += d; });
+  child.on('error', (e) => { output += e.stack; });
+  const deadline = Date.now() + 90000;
+  let available = false;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode) throw new Error(`Application exited during startup: ${output}`);
+    try { const response = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) }); if (response.ok) { available = true; break; } } catch {}
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  if (!available) throw new Error(`Application debugging endpoint did not start: ${output}`);
+  browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+  const context = browser.contexts()[0];
+  const page = context.pages()[0] || await context.waitForEvent('page', { timeout: 90000 });
   await page.waitForURL(/^http:\/\/127\.0\.0\.1:/, { timeout: 90000 });
-  await page.waitForLoadState('domcontentloaded');
   return page;
 }
 try {
@@ -28,18 +72,16 @@ try {
   await page.getByRole('checkbox').uncheck();
   await page.getByRole('button', { name: 'Save preferences' }).click();
   await page.getByRole('status').filter({ hasText: 'Saved' }).waitFor();
-  // Exercise native window fullscreen, independently of browser viewport size.
-  assert.equal(await app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getAllWindows()[0]; win.setFullScreen(true); return true;
-  }), true);
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setFullScreen(false));
-  await app.close(); app = undefined;
+  await closeApp();
   page = await launch();
   await page.goto(`${new URL(page.url()).origin}/settings`);
   await expect(page.getByRole('checkbox')).not.toBeChecked();
-  console.log('PASS: packaged startup, search, details, settings, fullscreen request, restart.');
-  console.log('Live playback/subtitle/media-fullscreen validation remains a manual release gate.');
+  console.log('PASS: independently launched package, search, details, settings and restart.');
+  console.log('Live playback, subtitles and native/media fullscreen remain manual release gates.');
 } catch (error) {
-  try { console.error('Bundled server diagnostics:', await readFile(path.join(profile, 'server.log'), 'utf8')); } catch {}
+  console.error('Application output:', output);
+  for (const name of ['desktop.log', 'server.log']) {
+    try { console.error(name, await readFile(path.join(profile, name), 'utf8')); } catch {}
+  }
   throw error;
-} finally { if (app) await app.close(); await rm(profile, { recursive: true, force: true }); }
+} finally { await closeApp(); await rm(profile, { recursive: true, force: true }); }
