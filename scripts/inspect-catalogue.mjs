@@ -10,4 +10,4 @@ const cards = home('a[href*="/movie/"], a[href*="/series/"]').map((_, e) => home
 const { gzipSync } = await import('node:zlib');
 const payload = gzipSync(cards).toString('base64');
 if (payload.length > 55000) throw new Error('Catalogue snapshot exceeds annotation limit');
-console.log('::notice title=Rendered catalogue snapshot::' + payload);
+for (let i = 0; i < payload.length; i += 3000) console.log(`::notice title=Rendered catalogue snapshot ${i / 3000}::` + payload.slice(i, i + 3000));
