@@ -73,7 +73,7 @@ async function discoverPages(origin: string, limit: number, ctx: AdapterContext)
   }
 
   // Support both a sitemap index and a direct URL set.
-  for (const entry of pending.slice(0, 12)) {
+  for (const entry of pending.slice(0, Math.max(12, limit * 4))) {
     if (pages.size >= limit) break;
     if (!/^https?:\/\//i.test(entry)) continue;
     const parsed = new URL(entry);
@@ -91,6 +91,22 @@ async function discoverPages(origin: string, limit: number, ctx: AdapterContext)
       }
     } else if (/\/(?:movie|movies|series|tv)\//i.test(parsed.pathname)) {
       pages.add(parsed.href);
+    }
+  }
+  // Some sites do not publish sitemaps. Fall back to public catalogue links
+  // found in the homepage HTML, still restricted to movie/series detail paths.
+  if (!pages.size) {
+    try {
+      const homepage = await fetchText(origin);
+      for (const match of homepage.matchAll(/href=["']([^"']+)["']/gi)) {
+        try {
+          const u = new URL(decode(match[1]), origin);
+          if (u.origin === origin && /\\/(?:movie|movies|series|tv)\\//i.test(u.pathname)) pages.add(u.href);
+        } catch {}
+        if (pages.size >= limit) break;
+      }
+    } catch (error) {
+      ctx.log("homepage discovery failed at " + origin + ": " + (error as Error).message);
     }
   }
   return [...pages].slice(0, limit);
@@ -112,8 +128,8 @@ function parsePage(html: string, url: string, site: (typeof SITES)[number]): Agg
   const id = parsed.pathname.replace(/\/$/, "").split("/").pop() || encodeURIComponent(name);
 
   return {
-    externalSource: site.key,
-    externalId: id,
+    externalSource: "owned-sites",
+    externalId: `${site.key}:${id}`,
     kind: isSeries ? "series" : "movie",
     name,
     originalName: name,
