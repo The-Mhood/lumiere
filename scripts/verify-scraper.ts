@@ -8,6 +8,14 @@ import { chromium } from '@playwright/test';
 import { BrowserScraperProvider } from '../src/lib/streaming/browser-scraper';
 import { rankSources } from '../src/lib/streaming';
 
+const movies = {
+  27205: { slug: 'inception-2010', name: 'Inception', year: 2010, minutes: 148 },
+  157336: { slug: 'interstellar-2014', name: 'Interstellar', year: 2014, minutes: 169 },
+  155: { slug: 'the-dark-knight-2008', name: 'The Dark Knight', year: 2008, minutes: 152 },
+};
+const tmdbId = Number(process.env.LUMIERE_TEST_TMDB || 27205) as keyof typeof movies;
+const movie = movies[tmdbId];
+if (!movie) throw new Error('Unknown acceptance-test movie');
 const token = randomBytes(32).toString('hex');
 process.env.LUMIERE_MEDIA_WORKER_URL = 'http://127.0.0.1:3200';
 process.env.LUMIERE_MEDIA_WORKER_TOKEN = token;
@@ -40,7 +48,7 @@ try {
   const provider = new BrowserScraperProvider('http://127.0.0.1:3200', token, [{ id: 'cinejoy', name: 'Cinejoy', mediaHosts: ['lightspeed.st', '*.lightspeed.st'] }]);
   let sources = [] as ReturnType<typeof rankSources>;
   for (let attempt = 0; attempt < 2 && !sources.length; attempt++) {
-    sources = rankSources(await provider.resolve({ slug: 'inception-2010', name: 'Inception', year: 2010, kind: 'movie', tmdbId: 27205 }, AbortSignal.timeout(50000)));
+    sources = rankSources(await provider.resolve({ slug: movie.slug, name: movie.name, year: movie.year, kind: 'movie', tmdbId }, AbortSignal.timeout(50000)));
   }
   if (!sources.length) throw new Error('Live scraper returned no directly playable sources');
   await new Promise<void>(resolve => server.listen(3300, '0.0.0.0', resolve));
@@ -71,8 +79,10 @@ try {
   if (playbackError) throw new Error(`Independent player failed: ${JSON.stringify(playbackError)}; network: ${JSON.stringify(errors.slice(-6))}`);
   await page.waitForFunction(() => document.querySelector('video')!.currentTime > 2, { timeout: 30000 });
   const media = await page.locator('video').evaluate((v: HTMLVideoElement) => ({ duration: v.duration, time: v.currentTime, readyState: v.readyState }));
-  if (media.duration < 8000 || media.duration > 10000) throw new Error('Resolved media does not have the expected full-film duration');
-  const report = { status: 'passed', movie: 'Inception (2010)', tmdbId: 27205, sources: sources.map(s => ({ provider: s.providerSlug, format: s.format, host: new URL(s.url, 'http://same-origin-relay').hostname })), media, errors };
+  await page.locator('video').evaluate((v: HTMLVideoElement) => { v.currentTime = 120; });
+  await page.waitForFunction(() => document.querySelector('video')!.currentTime > 121, undefined, { timeout: 30000 });
+  if (Math.abs(media.duration - movie.minutes * 60) > 240) throw new Error('Resolved media does not have the expected full-film duration');
+  const report = { status: 'passed', movie: `${movie.name} (${movie.year})`, tmdbId, seek: 'passed', sources: sources.map(s => ({ provider: s.providerSlug, format: s.format, host: new URL(s.url, 'http://same-origin-relay').hostname })), media, errors };
   await mkdir('catalogue-report', { recursive: true });
   await writeFile('catalogue-report/playback.json', JSON.stringify(report, null, 2));
   console.log(`::notice title=Independent scraper playback::${JSON.stringify(report)}`);

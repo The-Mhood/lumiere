@@ -37,16 +37,19 @@ episode URL is explicitly movie-only, not silently treated as episode support.
 
 Timeouts, concurrency limits, private-address checks, fresh contexts and popup
 blocking isolate failures. Do not expose the worker without its bearer token.
-Media URLs are response data, not database writes. They may expire or depend on
-CDN CORS/IP restrictions; observing a source does not certify independent playback.
+Media URLs are response data, not database writes. HLS/MP4 relay grants use opaque
+same-origin paths and host-scoped targets, not arbitrary URLs. HLS media is fetched
+within the normal public page origin without extracting headers/cookies or disabling
+CORS. Retained anonymous contexts expire after 15 idle minutes (four context capacity
+per worker). DASH sources remain direct. Observing a source does not certify playback.
 
 ## Acceptance
 
 `npm run test:media-live` starts a temporary authenticated worker, resolves
-Inception (TMDB 27205) without a catalogue import, closes the scraping context,
-and tries the returned media with Shaka in a separate browser context/origin.
-It requires time advancement and approximately the full-film duration. The CI
-workflow `.github/workflows/media-scraper.yml` runs the same test and emits a
+Inception (TMDB 27205) without a catalogue import, retains an isolated public fetch context for the media relay,
+and plays it with Shaka in a separate browser context/origin.
+It requires time advancement, a seek to two minutes, and approximately the full-film duration. The CI
+workflow `.github/workflows/media-scraper.yml` tests Inception, Interstellar and The Dark Knight and emits a
 sanitized report (no media URLs/secrets). **A passing unit test or successful
 scrape is not a passing playback test.**
 
