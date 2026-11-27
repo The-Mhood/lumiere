@@ -32,6 +32,16 @@ try {
   }
   if (!ready) throw new Error('Worker did not become reachable through HTTPS');
   const report = { endpoint, expiresAt, origin: process.env.LUMIERE_PREVIEW_ORIGIN };
+  if (process.env.GITHUB_TOKEN && process.env.GITHUB_REPOSITORY) {
+    const api = async (path, body) => {
+      const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error(`Deployment publication failed: HTTP ${response.status}`);
+      return response.json();
+    };
+    const deployment = await api('deployments', { ref: process.env.GITHUB_SHA, environment: 'lumiere-preview', auto_merge: false, required_contexts: [], transient_environment: true, production_environment: false, description: 'Temporary signed-session movie preview' });
+    report.deploymentId = deployment.id;
+    await api(`deployments/${deployment.id}/statuses`, { state: 'success', environment_url: endpoint, log_url: `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`, description: `Temporary preview expires ${expiresAt}` });
+  }
   await writeFile('.cache/preview-host/endpoint.json', JSON.stringify(report));
   await writeFile('.cache/preview-host/processes.json', JSON.stringify({ tunnel: tunnel.pid, worker: worker.pid }));
   console.log(`::notice title=Remote preview endpoint::${JSON.stringify(report)}`);

@@ -6,6 +6,7 @@ on:
     paths: ['.github/workflows/preview-worker.yml']
 permissions:
   contents: read
+  deployments: write
 concurrency:
   group: lumiere-temporary-movie-preview
   cancel-in-progress: true
@@ -14,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 195
     env:
+      GITHUB_TOKEN: ${{ github.token }}
       LUMIERE_PREVIEW_ORIGIN: https://3100-i6rtgc957ptte2942soku.e2b.app
     steps:
       - uses: actions/checkout@v5
