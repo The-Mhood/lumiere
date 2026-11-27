@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { HostedPreviewFrame } from "@/components/hosted-preview-frame";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,10 +20,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#07080c" };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  if (process.env.LUMIERE_REMOTE_APP_URL) {
+    const endpoint = new URL(process.env.LUMIERE_REMOTE_APP_URL);
+    if (endpoint.protocol !== 'https:') throw new Error('Hosted preview requires HTTPS');
+    return <html lang="en"><body className="bg-ink text-snow"><Suspense fallback={<p className="p-6">Connecting to the hosted app…</p>}><HostedPreviewFrame endpoint={endpoint.origin} /></Suspense></body></html>;
+  }
   const user = await getCurrentUser();
   return (
     <html lang="en">
       <body className="min-h-screen bg-ink text-snow antialiased">
+        {process.env.LUMIERE_PREVIEW_EXPIRES_AT && <p className="bg-gold/10 px-4 py-2 text-center text-xs text-gold">Temporary development preview · expires {new Date(process.env.LUMIERE_PREVIEW_EXPIRES_AT).toUTCString()} · preview accounts/history are temporary.</p>}
         <Navbar user={user} />
         <main className="min-h-[70vh]">{children}</main>
         <footer className="mt-20 border-t border-white/5 py-10 text-center text-sm text-mist">

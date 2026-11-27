@@ -5,7 +5,7 @@ const pids = JSON.parse(await readFile('.cache/preview-host/processes.json', 'ut
 try {
   while (Date.now() < Date.parse(report.expiresAt)) {
     await delay(Math.min(60000, Date.parse(report.expiresAt) - Date.now()));
-    const response = await fetch('http://127.0.0.1:3200/public-health', { signal: AbortSignal.timeout(5000) });
+    const response = await fetch('http://127.0.0.1:3100/api/health', { signal: AbortSignal.timeout(5000) });
     if (!response.ok) throw new Error('Preview worker stopped responding');
   }
 } finally {

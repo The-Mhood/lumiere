@@ -25,13 +25,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Build full application and initialize public movie metadata
+        run: |
+          node scripts/build-desktop.mjs
+          node scripts/prepare-desktop.mjs
+          LUMIERE_DATA_DIR="$GITHUB_WORKSPACE/.cache/preview-host/data" npx tsx scripts/seed-preview-host.ts
       - name: Install pinned HTTPS development tunnel
         run: |
           mkdir -p .cache
           curl --fail --location --retry 3 https://github.com/cloudflare/cloudflared/releases/download/2026.11.2/cloudflared-linux-amd64 -o .cache/cloudflared
           echo '56f13335143ec0e22772963290683a84a04114a35ec64cbc794a4d39ff9bb8cf  .cache/cloudflared' | sha256sum --check
           chmod +x .cache/cloudflared
-      - name: Publish temporary signed-session preview endpoint
+      - name: Publish temporary full-app preview
         run: node scripts/launch-preview-host.mjs
       - name: Verify playback from actual app preview
         continue-on-error: true
