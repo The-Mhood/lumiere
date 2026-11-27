@@ -5,6 +5,7 @@ import { hostMatches, publicAddress, mediaFormat } from './browser-media.mjs';
 
 /** Opaque, host-scoped relay grants, not an arbitrary-URL/open proxy. */
 export class MediaGateway {
+  constructor(publicPrefix = '/api/playback/') { this.publicPrefix = publicPrefix; }
   grants = new Map();
   secret = randomBytes(32);
   cleanedAt = 0;
@@ -24,7 +25,7 @@ export class MediaGateway {
   }
   rewriteHls(text, base, hosts, transport) {
     const mediaHint = text.includes('#EXTINF:') ? (text.includes('#EXT-X-MAP:') ? 'm4s' : 'ts') : undefined;
-    const uri = (value, hint) => this.register(new URL(value, base).href, hosts, undefined, transport, hint).replace('/stream/', '/api/playback/');
+    const uri = (value, hint) => this.register(new URL(value, base).href, hosts, undefined, transport, hint).replace('/stream/', this.publicPrefix);
     return text.split('\n').map(line => {
       if (!line.trim()) return line;
       if (line.trimStart().startsWith('#')) return line.replace(/\bURI="([^"]+)"/g, (_, value) => `URI="${uri(value)}"`);

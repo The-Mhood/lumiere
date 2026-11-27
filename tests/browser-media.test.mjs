@@ -40,3 +40,30 @@ describe('opaque same-origin media gateway', () => {
     expect(() => gateway.rewriteHls('#EXTM3U\nhttp://127.0.0.1/private', url, ['media.example.org'])).toThrow();
   });
 });
+
+import { generateKeyPairSync, createSign } from 'node:crypto';
+import { verifyPreviewCapability } from '../scripts/lib/preview-capability.mjs';
+describe('short-lived public-key playback sessions', () => {
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const identity = { kind: 'movie', tmdbId: 238 };
+  function capability(overrides = {}) {
+    const payload = Buffer.from(JSON.stringify({ version: 1, origin: 'https://preview.example', identity, exp: Math.floor(Date.now() / 1000) + 300, nonce: 'test-nonce', ...overrides })).toString('base64url');
+    return `Bearer ${payload}.${createSign('RSA-SHA256').update(payload).sign(privateKey).toString('base64url')}`;
+  }
+  it('accepts only the signed origin and requested movie', () => {
+    expect(verifyPreviewCapability(capability(), publicKey, 'https://preview.example', identity)?.identity).toEqual(identity);
+    expect(verifyPreviewCapability(capability(), publicKey, 'https://evil.example', identity)).toBeNull();
+    expect(verifyPreviewCapability(capability(), publicKey, 'https://preview.example', { ...identity, tmdbId: 1 })).toBeNull();
+  });
+  it('rejects expired, altered and long-lived credentials', () => {
+    expect(verifyPreviewCapability(capability({ exp: 1 }), publicKey, 'https://preview.example', identity)).toBeNull();
+    expect(verifyPreviewCapability(capability({ exp: Math.floor(Date.now() / 1000) + 3600 }), publicKey, 'https://preview.example', identity)).toBeNull();
+    expect(verifyPreviewCapability(capability() + 'x', publicKey, 'https://preview.example', identity)).toBeNull();
+  });
+  it('rewrites remote manifests to the public gateway, not the sandbox', () => {
+    const gateway = new MediaGateway('https://worker.example/media/');
+    const manifest = gateway.rewriteHls('#EXTM3U\n#EXTINF:4,\npart.ts', 'https://media.example/film.m3u8', ['media.example']);
+    expect(manifest).toContain('https://worker.example/media/');
+    expect(manifest).not.toContain('/api/playback/');
+  });
+});

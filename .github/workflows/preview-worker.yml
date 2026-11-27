@@ -1,0 +1,39 @@
+name: Temporary movie preview worker
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/e423f162-lumiere']
+    paths: ['.github/workflows/preview-worker.yml']
+permissions:
+  contents: read
+concurrency:
+  group: lumiere-temporary-movie-preview
+  cancel-in-progress: true
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 195
+    env:
+      LUMIERE_PREVIEW_ORIGIN: https://3100-i6rtgc957ptte2942soku.e2b.app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Install pinned HTTPS development tunnel
+        run: |
+          mkdir -p .cache
+          curl --fail --location --retry 3 https://github.com/cloudflare/cloudflared/releases/download/2026.11.2/cloudflared-linux-amd64 -o .cache/cloudflared
+          echo '56f13335143ec0e22772963290683a84a04114a35ec64cbc794a4d39ff9bb8cf  .cache/cloudflared' | sha256sum --check
+          chmod +x .cache/cloudflared
+      - name: Publish temporary signed-session preview endpoint
+        run: node scripts/launch-preview-host.mjs
+      - name: Verify playback from actual app preview
+        continue-on-error: true
+        run: node scripts/verify-preview-app.mjs
+      - name: Keep development preview available for three hours
+        if: ${{ !cancelled() }}
+        run: node scripts/hold-preview-host.mjs
