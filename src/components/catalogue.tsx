@@ -99,6 +99,7 @@ export async function Catalogue({ base, query, heading, intro }: { base: string;
       </div>
 
       <div className="mt-8">
+        {result.discoveryNotice && <p role="status" className="mb-4 text-sm text-gold">{result.discoveryNotice}</p>}
         <PosterGrid items={result.items} />
       </div>
 

@@ -1,3 +1,4 @@
+import { discoverMovies, materializeTmdbMovie, tmdbConfigured, tmdbGet, tmdbHomeMovies } from "./tmdb-discovery";
 import { curatedSourceMatches } from "./streaming/curated-matches";
 import { and, asc, desc, eq, ilike, inArray, ne, or, sql, SQL } from "drizzle-orm";
 import { db } from "@/db";
@@ -52,6 +53,12 @@ export interface CatalogueQuery {
 }
 
 export async function listGenres() {
+  if (tmdbConfigured()) {
+    try {
+      const result = await tmdbGet<{ genres: { id: number; name: string }[] }>("/genre/movie/list");
+      return result.genres.map(g => ({ ...g, slug: g.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") }));
+    } catch { /* Keep the local library usable during metadata outages. */ }
+  }
   return cached("genres", 600, () => db.select().from(genres).orderBy(asc(genres.name)));
 }
 
@@ -70,6 +77,11 @@ export async function listYears() {
 }
 
 export async function queryCatalogue(q: CatalogueQuery) {
+  let discoveryNotice: string | undefined;
+  if (tmdbConfigured() && q.kind !== 'series' && !q.platform && !q.country && !q.quality) {
+    try { return { ...await discoverMovies(q), discoveryNotice: undefined as string | undefined }; }
+    catch { discoveryNotice = 'Live movie discovery is unavailable. Showing your local library.'; }
+  }
   const page = Number.isFinite(q.page) ? Math.min(100000, Math.max(1, Math.floor(q.page!))) : 1;
   const pageSize = Number.isFinite(q.pageSize) ? Math.min(48, Math.max(1, Math.floor(q.pageSize!))) : 24;
   const where: SQL[] = [];
@@ -110,7 +122,7 @@ export async function queryCatalogue(q: CatalogueQuery) {
     db.select({ count: sql<number>`count(*)::int` }).from(titles).where(cond),
   ]);
 
-  return { items, total: count, page, pageSize, pages: Math.max(1, Math.ceil(count / pageSize)) };
+  return { items, total: count, page, pageSize, pages: Math.max(1, Math.ceil(count / pageSize)), discoveryNotice };
 }
 
 export async function homeRails() {
@@ -153,12 +165,22 @@ export async function homeRails() {
           .limit(12),
       })),
     );
-    return { featured, trending, popular, recent, series, topRated, latestEpisodes, collections, archive, cinejoy };
+    const local = { featured, trending, popular, recent, series, topRated, latestEpisodes, collections, archive, cinejoy, discoveryNotice: undefined as string | undefined };
+    if (tmdbConfigured()) {
+      try { return { ...local, ...await tmdbHomeMovies() }; }
+      catch { return { ...local, discoveryNotice: 'Live movie discovery is unavailable. Showing your local library.' }; }
+    }
+    return local;
   });
 }
 
 export async function getTitleBySlug(slug: string) {
-  const [title] = await db.select().from(titles).where(eq(titles.slug, slug)).limit(1);
+  let [title] = await db.select().from(titles).where(eq(titles.slug, slug)).limit(1);
+  if (!title && /^tmdb-movie-[1-9]\d{0,9}$/.test(slug) && tmdbConfigured()) {
+    try { await materializeTmdbMovie(slug); }
+    catch (error) { if (error instanceof Error && error.message === 'TMDB discovery HTTP 404') return null; throw error; }
+    [title] = await db.select().from(titles).where(eq(titles.slug, slug)).limit(1);
+  }
   if (!title) return null;
 
   const [genreRows, creditRows, seasonRows, episodeRows, rawSources, availabilityRows] = await Promise.all([

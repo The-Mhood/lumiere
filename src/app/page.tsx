@@ -13,6 +13,7 @@ export default async function HomePage() {
   return (
     <div className="-mt-16">
       <HeroCarousel items={rails.featured} />
+      {rails.discoveryNotice && <p role="status" className="mx-auto max-w-7xl px-4 py-3 text-sm text-gold">{rails.discoveryNotice}</p>}
 
       {cw.length > 0 && (
         <Rail title="Continue watching" href="/library" subtitle="Pick up right where you left off">

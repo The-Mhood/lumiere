@@ -1,0 +1,9 @@
+[
+  {
+    "id": "cinejoy",
+    "name": "Cinejoy",
+    "movieUrl": "https://cinejoy.pk/movie/{tmdbId}-movie",
+    "pageHosts": ["cinejoy.pk"],
+    "mediaHosts": ["lightspeed.st", "*.lightspeed.st"]
+  }
+]

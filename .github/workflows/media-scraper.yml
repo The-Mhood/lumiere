@@ -1,0 +1,34 @@
+name: On-demand media playback
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/e423f162-lumiere']
+    paths:
+      - '.github/workflows/media-scraper.yml'
+      - 'scripts/lib/browser-media.mjs'
+      - 'scripts/media-worker.mjs'
+      - 'scripts/verify-scraper.ts'
+      - 'scrapers/**'
+      - 'src/lib/streaming/browser-scraper.ts'
+permissions:
+  contents: read
+jobs:
+  playback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+      - run: npx tsx scripts/verify-scraper.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: on-demand-playback-report
+          path: catalogue-report/playback.json

@@ -1,3 +1,5 @@
+import { playbackIdentity } from "@/lib/streaming/identity";
+import { configuredScraperSites } from "@/lib/streaming/browser-scraper";
 import { withResolvedSources } from "@/lib/streaming/enrich";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -21,7 +23,9 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const [record, user] = await Promise.all([getTitleBySlug(slug), getCurrentUser()]);
   if (!record) notFound();
-  const title = await withResolvedSources(record);
+  const canScrape = Boolean(playbackIdentity(record).tmdbId && process.env.LUMIERE_MEDIA_WORKER_URL && process.env.LUMIERE_MEDIA_WORKER_TOKEN && configuredScraperSites().length);
+  // Scrape only when Watch is requested, not every time details render.
+  const title = canScrape ? record : await withResolvedSources(record);
 
   let inWatchlist = false;
   if (user) {
@@ -35,7 +39,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
 
   const firstEpisode = title.seasons[0]?.episodes[0];
   const watchHref = title.kind === "series" && firstEpisode ? `/watch/${title.slug}?ep=${firstEpisode.id}` : `/watch/${title.slug}`;
-  const playable = title.kind === "series" ? title.seasons.some((s) => s.episodes.some((e) => e.sources.length)) : title.sources.length > 0;
+  const playable = canScrape || (title.kind === "series" ? title.seasons.some((s) => s.episodes.some((e) => e.sources.length)) : title.sources.length > 0);
   const directors = title.crew.filter((c) => c.role === "director");
   const writers = title.crew.filter((c) => c.role === "writer");
   const allSources = title.kind === "series" ? title.seasons.flatMap((s) => s.episodes.flatMap((e) => e.sources)) : title.sources;
@@ -92,7 +96,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
               {playable ? (
                 <Link href={watchHref} className="inline-flex items-center gap-2 rounded-full bg-ember px-7 py-3 text-base font-bold text-ink transition hover:bg-ember-600 hover:shadow-[0_0_30px_rgba(255,92,56,0.45)]">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                  WATCH NOW
+                  {canScrape ? 'FIND SOURCES & PLAY' : 'WATCH NOW'}
                 </Link>
               ) : (
                 <span className="rounded-full border border-white/10 px-6 py-3 text-mist">No authorized source available</span>

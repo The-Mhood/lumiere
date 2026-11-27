@@ -1,0 +1,101 @@
+import { cache } from './cache';
+import type { TitleCard, CatalogueQuery } from './content';
+import type { Title } from '@/db/schema';
+
+interface Movie {
+  id: number; title: string; original_title?: string; overview?: string;
+  release_date?: string; vote_average?: number; vote_count?: number; popularity?: number;
+  poster_path?: string; backdrop_path?: string; runtime?: number; original_language?: string;
+  production_countries?: { name: string }[]; genres?: { id: number; name: string }[];
+}
+interface Page { results: Movie[]; total_results: number; total_pages: number; page: number }
+const IMAGE = 'https://image.tmdb.org/t/p/';
+export const tmdbConfigured = () => Boolean(process.env.TMDB_READ_ACCESS_TOKEN || process.env.TMDB_API_KEY);
+
+export async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+  if (!tmdbConfigured()) throw new Error('TMDB discovery is not configured');
+  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  const token = process.env.TMDB_READ_ACCESS_TOKEN;
+  if (!token) url.searchParams.set('api_key', process.env.TMDB_API_KEY!);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  const key = `tmdb:discovery:${path}:${JSON.stringify(params)}`;
+  const hit = cache.get<T>(key);
+  if (hit) return hit;
+  const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(8000), headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+  if (!response.ok) throw new Error(`TMDB discovery HTTP ${response.status}`);
+  const data = await response.json() as T;
+  cache.set(key, data, 300);
+  return data;
+}
+
+export function movieCard(movie: Movie): TitleCard {
+  return {
+    id: -movie.id * 2, slug: `tmdb-movie-${movie.id}`, kind: 'movie', name: movie.title,
+    year: Number(movie.release_date?.slice(0, 4)) || 0, rating: movie.vote_average ?? 0,
+    posterUrl: movie.poster_path ? `${IMAGE}w500${movie.poster_path}` : null,
+    maxQuality: 'unverified', runtimeMinutes: movie.runtime ?? null, country: movie.production_countries?.[0]?.name ?? '',
+  };
+}
+
+export async function discoverMovies(q: CatalogueQuery) {
+  const page = Math.min(500, Math.max(1, Math.floor(q.page || 1)));
+  const params: Record<string, string> = { page: String(page), include_adult: 'false' };
+  let path = '/discover/movie';
+  if (q.q?.trim()) { path = '/search/movie'; params.query = q.q.trim().slice(0, 200); }
+  else {
+    params.sort_by = ({ rating: 'vote_average.desc', year: 'primary_release_date.desc', newest: 'primary_release_date.desc', title: 'title.asc', popular: 'popularity.desc' } as const)[q.sort ?? 'popular'] || 'popularity.desc';
+    if (q.sort === 'rating') params['vote_count.gte'] = '200';
+    if (q.genre) {
+      const { genres } = await tmdbGet<{ genres: { id: number; name: string }[] }>('/genre/movie/list');
+      const genre = genres.find(g => g.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === q.genre);
+      if (genre) params.with_genres = String(genre.id);
+    }
+  }
+  if (q.year) params[q.q ? 'year' : 'primary_release_year'] = String(q.year);
+  const data = await tmdbGet<Page>(path, params);
+  return { items: data.results.filter(m => Number.isSafeInteger(m.id) && m.title).map(movieCard), total: data.total_results, page, pageSize: 20, pages: Math.min(500, data.total_pages) };
+}
+
+export async function tmdbHomeMovies() {
+  const paths = ['/trending/movie/day', '/movie/popular', '/movie/now_playing', '/movie/top_rated'];
+  const pages = await Promise.all(paths.map(path => tmdbGet<Page>(path)));
+  const [trending, popular, recent, topRated] = pages.map(p => p.results.map(movieCard));
+  // Hero content is metadata only. Opening a card resolves its external ID;
+  // no batch-import of search/category results is required.
+  const featured: Title[] = pages[0].results.slice(0, 5).map(m => ({
+    ...movieCard(m), originalName: m.original_title ?? m.title, synopsis: m.overview ?? '', tagline: null,
+    releaseDate: m.release_date ?? null, voteCount: m.vote_count ?? 0, popularity: m.popularity ?? 0,
+    backdropUrl: m.backdrop_path ? `${IMAGE}w1280${m.backdrop_path}` : null, language: m.original_language ?? 'en',
+    trailerUrl: null, license: 'Playback rights depend on the selected provider', featured: true,
+    externalSource: 'tmdb', externalId: `movie:${m.id}`, createdAt: new Date(0),
+  }));
+  return { trending, popular, recent, topRated, featured };
+}
+
+/** Persist only a clicked movie so existing watchlists/history keep stable IDs. */
+export async function materializeTmdbMovie(slug: string) {
+  const match = slug.match(/^tmdb-movie-([1-9]\d{0,9})$/);
+  if (!match || !tmdbConfigured()) return;
+  const id = Number(match[1]);
+  const movie = await tmdbGet<Movie>(`/movie/${id}`);
+  if (movie.id !== id || !movie.title || !movie.release_date) throw new Error('TMDB returned mismatched movie metadata');
+  const [{ db }, { titles, genres, titleGenres }, { eq }] = await Promise.all([import('@/db'), import('@/db/schema'), import('drizzle-orm')]);
+  await db.transaction(async tx => {
+    await tx.insert(titles).values({ slug, kind: 'movie', name: movie.title, originalName: movie.original_title,
+      synopsis: movie.overview || '', year: Number(movie.release_date!.slice(0, 4)), releaseDate: movie.release_date,
+      runtimeMinutes: movie.runtime, country: movie.production_countries?.[0]?.name ?? '', language: movie.original_language ?? 'en',
+      rating: movie.vote_average ?? 0, voteCount: movie.vote_count ?? 0, popularity: movie.popularity ?? 0,
+      posterUrl: movie.poster_path ? `${IMAGE}w500${movie.poster_path}` : null,
+      backdropUrl: movie.backdrop_path ? `${IMAGE}w1280${movie.backdrop_path}` : null,
+      maxQuality: 'unverified', license: 'Playback rights depend on the selected provider', externalSource: 'tmdb', externalId: `movie:${id}`,
+    }).onConflictDoNothing();
+    const [title] = await tx.select().from(titles).where(eq(titles.slug, slug)).limit(1);
+    if (!title) throw new Error('Movie identity conflict');
+    for (const genre of movie.genres ?? []) {
+      const genreSlug = genre.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      await tx.insert(genres).values({ slug: genreSlug, name: genre.name }).onConflictDoNothing();
+      const [row] = await tx.select().from(genres).where(eq(genres.slug, genreSlug)).limit(1);
+      await tx.insert(titleGenres).values({ titleId: title.id, genreId: row.id }).onConflictDoNothing();
+    }
+  });
+}

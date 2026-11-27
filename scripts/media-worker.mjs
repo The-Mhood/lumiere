@@ -6,11 +6,10 @@ import { scrapeMedia, validateRequest } from './lib/browser-media.mjs';
 
 const token = process.env.LUMIERE_MEDIA_WORKER_TOKEN;
 if (!token || token.length < 24) throw new Error('Set LUMIERE_MEDIA_WORKER_TOKEN to a random secret of at least 24 characters');
-const configPath = process.env.LUMIERE_SCRAPER_SITES;
-if (!configPath) throw new Error('Set LUMIERE_SCRAPER_SITES to the site-adapter JSON path');
+const configPath = process.env.LUMIERE_SCRAPER_SITES || new URL('../scrapers/sites.json', import.meta.url);
 const sites = JSON.parse(await readFile(configPath, 'utf8'));
 if (!Array.isArray(sites) || !sites.length || sites.length > 20 || sites.some(s => !/^[a-z0-9-]+$/.test(s.id) || !s.name || !Array.isArray(s.pageHosts) || !Array.isArray(s.mediaHosts) || !s.mediaHosts.length || s.mediaHosts.some(h => typeof h !== 'string' || h === '*'))) throw new Error('Each scraper requires an id, name, pageHosts and explicit mediaHosts');
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
 const maxConcurrent = Math.min(4, Math.max(1, Number(process.env.LUMIERE_SCRAPER_CONCURRENCY) || 2));
 let active = 0;
 function authorized(req) {
