@@ -104,3 +104,16 @@ do not instruct end users to disable OS security checks.
 - Basic authentication and worker quotas exist; CDN/WAF abuse controls, external
   monitoring, load/soak testing, dependency review, and disaster-recovery testing
   are still production launch gates. This is not a completed production audit.
+
+## Automated preflight (after starting production)
+
+From your administration machine with Node 22 and the private deployment file:
+
+```sh
+node --env-file=deploy/.env scripts/preflight-deployment.mjs https://watch.your-domain.com
+```
+
+This checks the website database, server-side TMDB credential, private worker,
+and matching app/worker adapters. Add `--require-tv` to make missing TV support a
+failure. A passing configuration check is **not** a video-decoding test. Afterward
+perform the browser/installed-app acceptance steps in `FINAL-AUDIT.md`.

@@ -1,3 +1,11 @@
+## Final audit and launch checklist
+
+See **[FINAL-AUDIT.md](FINAL-AUDIT.md)** for intended-versus-current coverage,
+verified test evidence, remaining source/TV development gaps, and exact owner
+launch steps. Hosting and TMDB enable the implemented pipeline; they do not
+provide video or guarantee every title. [deploy/README.md](deploy/README.md)
+contains the persistent service setup and authenticated preflight command.
+
 ## Persistent deployment and live search
 
 Start with **[deploy/README.md](deploy/README.md)** for the exact owner launch

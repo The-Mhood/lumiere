@@ -109,6 +109,13 @@ describe('catalogue operations', () => {
       expect((await route.POST(new Request('http://localhost/api/admin/catalogue', { method: 'POST' }))).status).toBe(401);
     } finally { vi.unstubAllEnvs(); }
   });
+  it('keeps legacy aggregation closed when production has no admin token', async () => {
+    const { POST } = await import('@/app/api/aggregate/sync/route');
+    const { NextRequest } = await import('next/server');
+    vi.stubEnv('NODE_ENV', 'production'); vi.stubEnv('AGGREGATOR_TOKEN', '');
+    try { expect((await POST(new NextRequest('https://example.test/api/aggregate/sync', { method: 'POST' }))).status).toBe(401); }
+    finally { vi.unstubAllEnvs(); }
+  });
   it('reads private scheduler status with the configured bearer token', async () => {
     const route = await import('@/app/api/admin/catalogue/route');
     vi.stubEnv('AGGREGATOR_TOKEN', 'test-admin-token-with-32-characters');
