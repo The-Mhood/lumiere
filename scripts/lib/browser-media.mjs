@@ -89,40 +89,108 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
           master = format === 'hls' && body.includes('#EXT-X-STREAM-INF');
           if (format === 'hls' ? !body.trimStart().startsWith('#EXTM3U') : !/<(?:\w+:)?MPD\b/.test(body)) return;
         }
-        found.set(target.href, { url: target.href, format, master, label: `${site.name} · ${format.toUpperCase()}` });
+        found.set(target.href, { url: target.href, format, master, label: `${site.name} · ${format.toUpperCase()}`, frame: response.frame() });
         finish();
       })().catch(() => {});
       tasks.add(task);
       void task.finally(() => tasks.delete(task));
     });
-    const visit = (async () => {
+    let navigationError;
+    try {
       await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: Math.min(timeoutMs, 25000) });
-      if (site.playSelector) await page.locator(site.playSelector).first().click({ timeout: Math.min(timeoutMs, 15000) });
-      else await page.getByRole('button', { name: /^play$/i }).first().click({ timeout: Math.min(timeoutMs, 15000) });
-    })();
-    // Catch navigation errors immediately without leaving rejected promises.
-    let visitError;
-    await Promise.race([visit.catch(error => { visitError = error; }), deadline]);
-    if (!found.size && !visitError) await Promise.race([observed, deadline]);
+    } catch (error) {
+      navigationError = error;
+    }
+
+    // Players commonly live in cross-origin iframes. Search every frame rather
+    // than treating a missing top-level Play button as a page-load failure.
+    async function startPlayer() {
+      const frames = page.frames();
+      if (site.playSelector) {
+        for (const frame of frames) {
+          try {
+            await frame.locator(site.playSelector).first().click({ timeout: 2500 });
+            return true;
+          } catch {}
+        }
+      }
+      const selectors = [
+        'button[aria-label*="play" i]',
+        '[role="button"][aria-label*="play" i]',
+        'button[title*="play" i]',
+        '.vjs-big-play-button',
+        '.jw-icon-playback',
+        '.plyr__control--overlaid',
+        '[data-testid*="play" i]'
+      ];
+      for (const frame of frames) {
+        for (const selector of selectors) {
+          try {
+            const target = frame.locator(selector).first();
+            if (await target.isVisible({ timeout: 500 })) {
+              await target.click({ timeout: 2000 });
+              return true;
+            }
+          } catch {}
+        }
+      }
+      // Muted autoplay is a normal browser playback attempt; no player
+      // credentials, scripts, or protected media data are extracted.
+      for (const frame of frames) {
+        try {
+          const video = frame.locator('video').first();
+          if (await video.count()) {
+            const started = await video.evaluate(async node => {
+              const element = node;
+              element.muted = true;
+              try { await element.play(); return true; } catch { return false; }
+            });
+            if (started) return true;
+          }
+        } catch {}
+      }
+      return false;
+    }
+
+    if (!navigationError) await startPlayer();
+    if (!found.size && !navigationError) await Promise.race([observed, deadline]);
     if (found.size) {
-      try {
-        await page.waitForFunction(() => [...document.querySelectorAll('video')].some(v => v.readyState >= 3 && v.currentTime > 0.5), undefined, { timeout: Math.max(1, timeoutMs - (Date.now() - started)) });
-      } catch { return { sources: [], reason: 'Public player did not start decoding media before its deadline', observedHosts: [...observedHosts] }; }
+      const decodeDeadline = Date.now() + Math.max(1, timeoutMs - (Date.now() - started));
+      let decoded = false;
+      while (!decoded && Date.now() < decodeDeadline) {
+        for (const frame of page.frames()) {
+          try {
+            decoded = await frame.locator('video').evaluateAll(nodes =>
+              nodes.some(video => video.readyState >= 3 && video.currentTime > 0.5)
+            );
+            if (decoded) break;
+          } catch {}
+        }
+        if (!decoded) await page.waitForTimeout(300).catch(() => {});
+      }
+      if (!decoded) return { sources: [], reason: 'Public player did not start decoding media before its deadline', observedHosts: [...observedHosts] };
       const masters = [...found.values()].filter(s => s.master).reverse();
-      const playable = masters.length ? masters : [...found.values()].reverse();
+      const playableEntries = masters.length ? masters : [...found.values()].reverse();
+      const playable = playableEntries.map(({ frame, ...source }) => source);
       if (!retainContext) return { sources: playable };
       retained = true;
       page.removeAllListeners('response');
-      await page.locator('video').evaluateAll(nodes => nodes.forEach(v => v.pause())).catch(() => {});
+      for (const frame of page.frames()) {
+        await frame.locator('video').evaluateAll(nodes => nodes.forEach(v => v.pause())).catch(() => {});
+      }
       let idleTimer;
       const touch = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { void context.close(); }, 15 * 60000); idleTimer.unref(); };
       touch();
       context.once('close', () => clearTimeout(idleTimer));
       // Fetch within the normal public page origin. No headers/cookies are
       // extracted or fabricated, and browser CORS enforcement remains enabled.
+      // Keep HLS segment fetching in the same public player frame that
+      // initiated the manifest request, preserving normal browser-origin/CORS
+      // rules without copying cookies or authorization headers.
+      const mediaFrame = playableEntries[0]?.frame || page.mainFrame();
       const fetchMedia = async (url, range) => {
         touch();
-        return page.evaluate(async ({ url, range }) => {
+        return mediaFrame.evaluate(async ({ url, range }) => {
           const response = await fetch(url, { credentials: 'omit', signal: AbortSignal.timeout(25000), ...(range ? { headers: { Range: range } } : {}) });
           if (!response.ok) return { status: response.status, headers: {}, body: '' };
           const reader = response.body.getReader();
@@ -137,7 +205,7 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
       };
       return { sources: playable, fetchMedia };
     }
-    return { sources: [], reason: visitError ? 'Public player could not be opened' : 'Public player produced no allowed, directly playable media before its deadline', observedHosts: [...observedHosts] };
+    return { sources: [], reason: navigationError ? 'Public player page could not be loaded' : 'Player opened, but no allowed, directly playable media was observed before its deadline', observedHosts: [...observedHosts] };
   } finally {
     clearTimeout(timer);
     closed = true;
