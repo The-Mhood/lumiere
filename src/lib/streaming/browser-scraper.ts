@@ -1,3 +1,4 @@
+import defaultSites from "../../../scrapers/sites.json";
 import { createHash } from 'node:crypto';
 import type { ProviderAdapter, TitleMatch } from './resolver';
 import { detectFormat, hostAllowed, type SourceRecord } from '../streaming';
@@ -7,7 +8,7 @@ interface WorkerResult { provider: string; sources: { url: string; format: strin
 
 export function configuredScraperSites(): ScraperSite[] {
   const raw = process.env.LUMIERE_SCRAPER_PROVIDERS;
-  if (!raw) return [];
+  if (!raw) return process.env.LUMIERE_MEDIA_WORKER_URL ? defaultSites.map(s => ({ id: s.id, name: s.name, mediaHosts: s.mediaHosts })) : [];
   let sites: ScraperSite[];
   try { sites = JSON.parse(raw); } catch { throw new Error('Invalid LUMIERE_SCRAPER_PROVIDERS JSON'); }
   if (!Array.isArray(sites) || sites.length > 20 || sites.some(s => !s || !/^[a-z0-9-]+$/.test(s.id) || typeof s.name !== 'string' || !Array.isArray(s.mediaHosts) || !s.mediaHosts.length || s.mediaHosts.some(h => typeof h !== 'string' || h === '*'))) throw new Error('Invalid scraper provider configuration');

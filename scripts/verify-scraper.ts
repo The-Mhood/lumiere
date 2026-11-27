@@ -51,6 +51,10 @@ try {
   await mkdir('catalogue-report', { recursive: true });
   await writeFile('catalogue-report/playback.json', JSON.stringify(report, null, 2));
   console.log(`::notice title=Independent scraper playback::${JSON.stringify(report)}`);
+} catch (error) {
+  const message = `${error instanceof Error ? error.message : 'Scraper verification failed'}; worker: ${output.slice(-1500)}`.replace(/https?:\/\/[^\s"']+/g, '[URL omitted]').replaceAll('%', '%25').replaceAll('\n', '%0A').replaceAll('\r', '%0D');
+  console.error(`::error title=Independent scraper playback::${message}`);
+  throw error;
 } finally {
   clearTimeout(watchdog);
   await browser?.close();
