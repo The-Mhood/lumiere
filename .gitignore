@@ -12,3 +12,6 @@ release/
 
 .cache/
 catalogue-report/
+
+electron/deployment.json
+deploy/.env

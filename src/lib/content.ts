@@ -1,4 +1,4 @@
-import { materializeTmdbMovie, tmdbConfigured, tmdbGet } from "./tmdb-discovery";
+import { searchTmdb, materializeTmdbMovie, materializeTmdbSeries, tmdbConfigured, tmdbGet } from "./tmdb-discovery";
 import { platformCatalogueIds, PLATFORMS } from "./platforms";
 import { curatedSourceMatches } from "./streaming/curated-matches";
 import { and, asc, desc, eq, ilike, inArray, ne, or, sql, SQL } from "drizzle-orm";
@@ -78,7 +78,7 @@ export async function listGenres() {
 export async function listCountries() {
   return cached("countries", 600, async () => {
     const rows = await db.selectDistinct({ country: titles.country }).from(titles).where(browsableTitle()).orderBy(asc(titles.country));
-    return rows.map((r) => r.country);
+    return rows.map((r) => r.country).filter(Boolean);
   });
 }
 
@@ -91,8 +91,15 @@ export async function listYears() {
 
 export async function queryCatalogue(q: CatalogueQuery) {
   let discoveryNotice: string | undefined;
+  if (q.q?.trim() && !q.watchProvider && !q.platform) {
+    if (tmdbConfigured()) {
+      try { return { ...await searchTmdb(q.q, q.kind, q.page), discoveryNotice: 'Matching metadata results. Media sources are checked when you select a title; playback is not guaranteed for every result.' }; }
+      catch { discoveryNotice = 'Live search is temporarily unavailable. Showing matching, recently source-checked local titles.'; }
+    } else discoveryNotice = 'Live movie/TV search needs TMDB configuration. Showing matching, recently source-checked local titles only.';
+  }
   const page = Number.isFinite(q.page) ? Math.min(100000, Math.max(1, Math.floor(q.page!))) : 1;
   const pageSize = Number.isFinite(q.pageSize) ? Math.min(48, Math.max(1, Math.floor(q.pageSize!))) : 24;
+  if (q.kind === 'series' && !q.q) discoveryNotice = 'Only series with a recently resolved episode source appear here. An empty catalogue means no TV source has been verified yet.';
   const where: SQL[] = [browsableTitle()];
   let platformPages: number | undefined;
 
@@ -200,6 +207,10 @@ export async function getTitleBySlug(slug: string) {
   if (!title && /^tmdb-movie-[1-9]\d{0,9}$/.test(slug) && tmdbConfigured()) {
     try { await materializeTmdbMovie(slug); }
     catch (error) { if (error instanceof Error && error.message === 'TMDB discovery HTTP 404') return null; throw error; }
+    [title] = await db.select().from(titles).where(eq(titles.slug, slug)).limit(1);
+  }
+  if (!title && /^tmdb-series-[1-9]\d{0,9}$/.test(slug) && tmdbConfigured()) {
+    await materializeTmdbSeries(Number(slug.replace('tmdb-series-', '')));
     [title] = await db.select().from(titles).where(eq(titles.slug, slug)).limit(1);
   }
   if (!title) return null;

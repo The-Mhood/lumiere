@@ -100,6 +100,47 @@ describe('playable-only catalogue', () => {
   });
 });
 
+describe('catalogue operations', () => {
+  it('rejects unauthenticated catalogue scheduling even when the token is unset', async () => {
+    const route = await import('@/app/api/admin/catalogue/route');
+    vi.stubEnv('AGGREGATOR_TOKEN', '');
+    try {
+      expect((await route.GET(new Request('http://localhost/api/admin/catalogue'))).status).toBe(401);
+      expect((await route.POST(new Request('http://localhost/api/admin/catalogue', { method: 'POST' }))).status).toBe(401);
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it('reads private scheduler status with the configured bearer token', async () => {
+    const route = await import('@/app/api/admin/catalogue/route');
+    vi.stubEnv('AGGREGATOR_TOKEN', 'test-admin-token-with-32-characters');
+    try {
+      const response = await route.GET(new Request('http://localhost/api/admin/catalogue', { headers: { Authorization: 'Bearer test-admin-token-with-32-characters' } }));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ running: false });
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it('materializes genuine TV episode coordinates idempotently without inventing sources', async () => {
+    const { materializeTmdbSeries } = await import('@/lib/tmdb-discovery');
+    const { cache } = await import('@/lib/cache');
+    cache.clearPrefix('tmdb:discovery:');
+    vi.stubEnv('TMDB_READ_ACCESS_TOKEN', 'test-token');
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: URL) => new Response(JSON.stringify(url.pathname.endsWith('/season/1') ? {
+      episodes: [{ episode_number: 1, name: 'Pilot', overview: 'A real episode description', air_date: '2008-01-20', runtime: 58 }],
+    } : { id: 1396, name: 'Breaking Bad', first_air_date: '2008-01-20', genres: [{ id: 18, name: 'Drama' }], seasons: [{ season_number: 1, name: 'Season 1' }] }))));
+    try {
+      await materializeTmdbSeries(1396); await materializeTmdbSeries(1396);
+      const result = await getTitleBySlug('tmdb-series-1396');
+      expect(result?.seasons).toHaveLength(1);
+      expect(result?.seasons[0].episodes).toHaveLength(1);
+      expect(result?.seasons[0].episodes[0]).toMatchObject({ number: 1, name: 'Pilot', sources: [] });
+      const { playbackIdentity } = await import('@/lib/streaming/identity');
+      expect(playbackIdentity(result!, result!.seasons[0].episodes[0].id)).toMatchObject({ tmdbId: 1396, seasonNumber: 1, episodeNumber: 1 });
+    } finally {
+      await db.delete(titles).where(eq(titles.slug, 'tmdb-series-1396'));
+      vi.unstubAllEnvs(); vi.unstubAllGlobals(); cache.clearPrefix('tmdb:discovery:');
+    }
+  });
+});
+
 describe("auth + library", () => {
   it("rejects weak registrations", async () => {
     const res = await register(json("/api/auth/register", "POST", { email: "bad", name: "x", password: "123" }));

@@ -40,6 +40,18 @@ async function freePort() {
   });
 }
 async function startServer() {
+  // Production installers can connect directly to the deployed service. The
+  // bundled local backend remains available for standalone/test installations.
+  const configPath = path.join(__dirname, 'deployment.json');
+  if (process.env.LUMIERE_SMOKE_TEST !== '1' && fs.existsSync(configPath)) {
+    const endpoint = new URL(JSON.parse(fs.readFileSync(configPath, 'utf8')).serverUrl);
+    if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || endpoint.pathname !== '/') throw new Error('Invalid desktop deployment URL');
+    origin = endpoint.origin;
+    const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(15000), redirect: 'error' });
+    if (!response.ok) throw new Error('Hosted Lumière service is unavailable. Please try again later.');
+    diagnostic('Connected to configured HTTPS service');
+    return;
+  }
   const port = await freePort();
   origin = `http://127.0.0.1:${port}`;
   const root = app.isPackaged ? path.join(process.resourcesPath, 'server') : path.join(__dirname, '..', '.next', 'standalone');

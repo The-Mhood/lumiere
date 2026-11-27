@@ -46,3 +46,28 @@ describe('playback identity', () => {
     expect(playbackIdentity({ ...title, externalId: 'movie:123' }, 999).tmdbId).toBeUndefined();
   });
 });
+
+describe('matching movie and TV search', () => {
+  it('preserves the search input and maps series to real series routes, not movie routes', async () => {
+    const { searchTmdb } = await import('../src/lib/tmdb-discovery');
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [
+      { id: 1396, media_type: 'tv', name: 'Breaking Bad', first_air_date: '2008-01-20', poster_path: '/bb.jpg' },
+      { id: 1, media_type: 'person', name: 'An actor' },
+      { id: 27205, media_type: 'movie', title: 'Inception', release_date: '2010-07-14' },
+    ], total_results: 3, total_pages: 1 })));
+    vi.stubGlobal('fetch', fetch);
+    const result = await searchTmdb('  Breaking Bad  ');
+    expect(result.items.map(item => item.slug)).toEqual(['tmdb-series-1396', 'tmdb-movie-27205']);
+    expect(result.items[0]).toMatchObject({ kind: 'series', name: 'Breaking Bad', year: 2008 });
+    const url = fetch.mock.calls[0][0] as URL;
+    expect(url.pathname).toBe('/3/search/multi');
+    expect(url.searchParams.get('query')).toBe('Breaking Bad');
+    expect(result.items[0].maxQuality).toBe('unverified');
+  });
+  it('does not send empty searches upstream', async () => {
+    const { searchTmdb } = await import('../src/lib/tmdb-discovery');
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    expect((await searchTmdb('   ')).items).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

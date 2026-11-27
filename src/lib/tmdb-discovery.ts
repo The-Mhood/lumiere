@@ -112,3 +112,53 @@ export async function materializeTmdbMovie(slug: string) {
     }
   });
 }
+
+/** Fetch real series/episode identities; never manufacture episode fixtures. */
+export async function materializeTmdbSeries(id: number) {
+  if (!Number.isSafeInteger(id) || id < 1) throw new Error('Invalid TMDB series ID');
+  const series = await tmdbGet<{ id: number; name: string; original_name?: string; overview?: string; first_air_date?: string; poster_path?: string; backdrop_path?: string; original_language?: string; vote_average?: number; vote_count?: number; popularity?: number; genres?: { id: number; name: string }[]; seasons?: { season_number: number; name: string; overview?: string; poster_path?: string; air_date?: string }[] }>(`/tv/${id}`);
+  if (series.id !== id || !series.name) throw new Error('TMDB returned mismatched series metadata');
+  const [{ db }, schema, { eq }] = await Promise.all([import('@/db'), import('@/db/schema'), import('drizzle-orm')]);
+  const slug = `tmdb-series-${id}`;
+  await db.insert(schema.titles).values({ slug, kind: 'series', name: series.name, originalName: series.original_name,
+    synopsis: series.overview || '', year: Number(series.first_air_date?.slice(0, 4)) || 0, releaseDate: series.first_air_date,
+    country: '', language: series.original_language || 'en', rating: series.vote_average || 0, voteCount: series.vote_count || 0, popularity: series.popularity || 0,
+    posterUrl: series.poster_path ? `${IMAGE}w500${series.poster_path}` : null, backdropUrl: series.backdrop_path ? `${IMAGE}w1280${series.backdrop_path}` : null,
+    maxQuality: 'unverified', license: 'Playback depends on available media sources', externalSource: 'tmdb', externalId: `series:${id}`,
+  }).onConflictDoNothing();
+  const [title] = await db.select().from(schema.titles).where(eq(schema.titles.slug, slug));
+  for (const genre of series.genres || []) {
+    const genreSlug = genre.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    await db.insert(schema.genres).values({ slug: genreSlug, name: genre.name }).onConflictDoNothing();
+    const [row] = await db.select().from(schema.genres).where(eq(schema.genres.slug, genreSlug));
+    await db.insert(schema.titleGenres).values({ titleId: title.id, genreId: row.id }).onConflictDoNothing();
+  }
+  for (const season of (series.seasons || []).filter(s => s.season_number > 0).slice(0, 30)) {
+    const detail = await tmdbGet<{ episodes: { episode_number: number; name: string; overview?: string; air_date?: string; runtime?: number; still_path?: string }[] }>(`/tv/${id}/season/${season.season_number}`);
+    await db.insert(schema.seasons).values({ titleId: title.id, number: season.season_number, name: season.name }).onConflictDoNothing();
+    const rows = await db.select().from(schema.seasons).where(eq(schema.seasons.titleId, title.id));
+    const row = rows.find(s => s.number === season.season_number)!;
+    for (const episode of detail.episodes || []) {
+      if (!episode.episode_number || !episode.name) continue;
+      await db.insert(schema.episodes).values({ titleId: title.id, seasonId: row.id, number: episode.episode_number, name: episode.name,
+        overview: episode.overview || '', airDate: episode.air_date, runtimeMinutes: episode.runtime,
+        stillUrl: episode.still_path ? `${IMAGE}w780${episode.still_path}` : null }).onConflictDoNothing();
+    }
+  }
+  return slug;
+}
+
+/** Search metadata is deliberately separate from the playable-only home rails. */
+export async function searchTmdb(query: string, kind?: 'movie' | 'series', page = 1) {
+  const text = query.trim().slice(0, 200);
+  const currentPage = Math.max(1, Math.min(500, Math.floor(page) || 1));
+  if (!text) return { items: [] as TitleCard[], total: 0, page: currentPage, pageSize: 20, pages: 1 };
+  type Result = Movie & { media_type?: string; name?: string; original_name?: string; first_air_date?: string };
+  const result = await tmdbGet<{ results: Result[]; total_results: number; total_pages: number }>(`/search/${kind === 'series' ? 'tv' : kind === 'movie' ? 'movie' : 'multi'}`, { query: text, include_adult: 'false', page: String(currentPage) });
+  const items = result.results.filter(item => Number.isSafeInteger(item.id) && (item.title || item.name) && (kind || ['movie', 'tv'].includes(item.media_type || ''))).map(item => {
+    const series = kind === 'series' || item.media_type === 'tv';
+    const card = movieCard({ ...item, title: item.title || item.name!, release_date: item.release_date || item.first_air_date });
+    return series ? { ...card, id: -item.id * 2 - 1, kind: 'series' as const, slug: `tmdb-series-${item.id}` } : card;
+  });
+  return { items, total: result.total_results, page: currentPage, pageSize: 20, pages: Math.max(1, Math.min(500, result.total_pages)) };
+}
