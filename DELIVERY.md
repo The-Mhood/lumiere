@@ -1,3 +1,43 @@
+## Playable-only catalogue and Platforms update
+
+Implemented at `61a7760` (native fixture isolation at `2d2fdaa`):
+
+- Public home/search/movie/series/genre/recommendation queries exclude demo seeds
+  and require a successful source lookup within 24 hours. Missing, failed, or
+  stale checks hide listings; the on-demand resolver still refreshes actual media
+  URLs when watching. A successful lookup is not a guarantee of full-film viewing.
+- No Cinejoy-branded home rail, fake “Lumière Originals” filter, or automatically
+  seeded sample films. Existing user data is preserved, not destructively reset.
+- `/platforms` contains Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Hulu,
+  Paramount+, and Peacock; `/platforms/:id` has movie/series selection and regional
+  TMDB provider filtering. Platform membership and playback source are separate.
+  Missing metadata configuration fails closed rather than showing unrelated films.
+- Public title cards open the internal player. Title pages no longer offer external
+  streaming-platform redirects. Source checks progressively publish real movie
+  listings through the hosted preview workflow (up to 120 candidates per session).
+- Schema addition `playback_checks` is additive, with cascading title references.
+  Test/demo database seeding requires `LUMIERE_SEED_DEMOS=1`; packaged regression
+  tests explicitly opt in, while public discovery remains demo-free by default.
+
+Current hosted application: deployment **8113434786**, app commit `61a7760`,
+[run 46024723607](https://github.com/The-Mhood/lumiere/actions/runs/46024723607).
+The actual Godfather playback-and-seek gate passed again. Its temporary expiry is
+2026-11-27 18:26:28 UTC. The source catalogue scan runs independently afterward.
+The workspace port-3100 shell now points to this replacement deployment.
+
+Local validation: **56 tests / 11 files passed**, lint/typecheck and production
+standalone build passed. Deployed catalogue UI assertions run separately through
+`preview-connectivity.yml`.
+
+**Not complete:** TMDB credentials are still absent, so Netflix/Prime/HBO catalogue
+contents cannot currently populate. There is one real movie-site adapter, not
+access to all platforms. TV episode scraping/playback is not implemented or
+verified; unsupported series stay hidden. Permanent hosting and native acceptance
+of these new catalogue changes are not certified. This update must not be
+represented as “total development complete” or universal playable coverage.
+
+---
+
 ## Connected full-app movie preview — current verification
 
 At commit `4ebf43e`, workflow [46015195289](https://github.com/The-Mhood/lumiere/actions/runs/46015195289)

@@ -1,3 +1,15 @@
+## Public catalogue behaviour
+
+Public browsing now excludes demo seeds and unverified imports: titles need a
+successful source lookup in the last 24 hours. The Cinejoy-branded rail has been
+removed. `/platforms` provides original-platform navigation with separate movie
+and series views, using TMDB regional membership metadata and Lumière's own
+on-demand player; it never redirects playback to Netflix/Prime/HBO.
+
+Platform metadata still requires TMDB configuration, and TV episode playback and
+multi-site coverage remain incomplete. See the newest section of `DELIVERY.md`.
+Demo seeding is opt-in (`LUMIERE_SEED_DEMOS=1`), not a production default.
+
 ## Current connected movie preview
 
 The full application and its private media worker now run together in a temporary
