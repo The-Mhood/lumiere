@@ -1,5 +1,7 @@
 import { BrowserScraperProvider, configuredScraperSites } from "./browser-scraper";
 import { BlenderProvider } from "./blender";
+import { JellyfinProvider, jellyfinSettings } from "./jellyfin";
+import { loadOwnedMediaConfig, OwnedMediaProvider } from "./owned-media";
 import { curatedSourceMatches } from "./curated-matches";
 import { and, eq, ilike, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -43,9 +45,17 @@ export async function getResolver() {
   const scraperSites = configuredScraperSites();
   const worker = process.env.LUMIERE_MEDIA_WORKER_URL;
   const token = process.env.LUMIERE_MEDIA_WORKER_TOKEN;
-  const current = JSON.stringify([worker, token, scraperSites, process.env.LUMIERE_OFFICIAL_SOURCES, configured.map((p) => [p.slug, p.priority, p.allowedHosts])]);
+  const ownedMedia = await loadOwnedMediaConfig();
+  const jellyfin = jellyfinSettings();
+  const current = JSON.stringify([worker, token, scraperSites, process.env.LUMIERE_OFFICIAL_SOURCES,
+    ownedMedia, jellyfin ? [jellyfin.baseUrl.href, jellyfin.apiKey, jellyfin.priority, jellyfin.allowHttp] : null,
+    configured.map((p) => [p.slug, p.priority, p.allowedHosts])]);
   if (!resolver || signature !== current) {
     resolver = new SourceResolver([
+      // Operator-owned/licensed media first, then the operator's own Jellyfin
+      // library, then public-page scrapers, catalogue rows and official demos.
+      ...(ownedMedia ? [new OwnedMediaProvider(ownedMedia)] : []),
+      ...(jellyfin ? [new JellyfinProvider(jellyfin)] : []),
       ...(worker && token && scraperSites.length ? [new BrowserScraperProvider(worker, token, scraperSites)] : []),
       ...configured.map((p) => new CatalogueProvider(p.slug, p.priority)),
       ...(process.env.LUMIERE_OFFICIAL_SOURCES === "0" ? [] : [new BlenderProvider()]),

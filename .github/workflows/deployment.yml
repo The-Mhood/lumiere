@@ -2,7 +2,7 @@ name: Production container validation
 on:
   workflow_dispatch:
   push:
-    branches: ['arena/e423f162-lumiere']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
     paths: ['Dockerfile', '.dockerignore', 'deploy/**', '.github/workflows/deployment.yml']
 permissions:
   contents: read

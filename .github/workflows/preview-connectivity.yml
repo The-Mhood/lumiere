@@ -2,7 +2,7 @@ name: Preview connectivity probe
 on:
   workflow_dispatch:
   push:
-    branches: ['arena/e423f162-lumiere']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
     paths: ['.github/workflows/preview-connectivity.yml']
 permissions:
   contents: read

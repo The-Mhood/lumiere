@@ -1,7 +1,7 @@
 name: External catalogue sync
 on:
   push:
-    branches: ['arena/e423f162-lumiere']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
     paths: ['.github/workflows/catalogue-sync.yml', 'src/lib/aggregators/cinejoy.ts', 'scripts/sync-external-catalogue.ts']
   workflow_dispatch:
 permissions:

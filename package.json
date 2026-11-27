@@ -17,6 +17,8 @@
     "desktop:mac": "npm run desktop:prepare && electron-builder --mac --config.productName=Lumiere",
     "desktop:win": "npm run desktop:prepare && electron-builder --win",
     "media:worker": "node scripts/media-worker.mjs",
+    "media:transcode": "node scripts/transcode.mjs",
+    "media:register": "node scripts/register-media.mjs",
     "test:media-live": "tsx scripts/verify-scraper.ts",
     "deploy:configure": "node scripts/configure-deployment.mjs",
     "deploy:up": "docker compose --env-file deploy/.env -f deploy/compose.yml up -d --build",

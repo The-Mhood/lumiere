@@ -2,7 +2,7 @@ name: Catalogue source coverage
 on:
   workflow_dispatch:
   push:
-    branches: ['arena/e423f162-lumiere']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
     paths:
       - 'src/lib/streaming/**'
       - 'scripts/verify-catalogue-sources.ts'

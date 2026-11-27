@@ -13,8 +13,16 @@ services:
       COOKIE_SECURE: 'true'
       LUMIERE_MEDIA_WORKER_URL: http://worker:3200
       LUMIERE_MEDIA_WORKER_TOKEN: ${LUMIERE_MEDIA_WORKER_TOKEN:?Set LUMIERE_MEDIA_WORKER_TOKEN}
+      # Operator-owned/licensed media library (optional; file may not exist yet)
+      LUMIERE_OWNED_MEDIA_FILE: /library/owned-media.json
+      # Operator's own Jellyfin server (optional; official API integration)
+      LUMIERE_JELLYFIN_URL: ${LUMIERE_JELLYFIN_URL:-}
+      LUMIERE_JELLYFIN_API_KEY: ${LUMIERE_JELLYFIN_API_KEY:-}
+      LUMIERE_JELLYFIN_PRIORITY: ${LUMIERE_JELLYFIN_PRIORITY:-10}
+      LUMIERE_JELLYFIN_ALLOW_HTTP: ${LUMIERE_JELLYFIN_ALLOW_HTTP:-}
     volumes:
       - app-data:/data
+      - ./library:/library:ro
     depends_on:
       worker:
         condition: service_healthy
@@ -52,6 +60,15 @@ services:
     depends_on:
       web:
         condition: service_healthy
+  transcode:
+    build:
+      context: ..
+      dockerfile: deploy/transcode.Dockerfile
+    profiles: ['tools']
+    volumes:
+      - ./media:/media
+      - ./library:/library
+    working_dir: /app
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped

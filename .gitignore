@@ -15,3 +15,7 @@ catalogue-report/
 
 electron/deployment.json
 deploy/.env
+.lumiere-preview/
+deploy/media/
+deploy/library/owned-media.json
+media-out/

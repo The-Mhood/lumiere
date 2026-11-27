@@ -2,7 +2,7 @@ name: macOS native diagnostics
 on:
   workflow_dispatch:
   push:
-    branches: ['arena/e423f162-lumiere']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
     paths: ['scripts/diagnose-macos.mjs', '.github/workflows/macos-diagnostics.yml']
 permissions:
   contents: read

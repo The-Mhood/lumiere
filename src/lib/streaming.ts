@@ -139,7 +139,7 @@ export function rankSources(sources: SourceRecord[]): PlayableSource[] {
       label: s.label,
       provider: s.provider.name,
       providerSlug: s.provider.slug,
-      url: s.playbackUrl && /^\/api\/playback\/[A-Za-z0-9_-]{32}\/media\.(?:m3u8|mp4)$/.test(s.playbackUrl) ? s.playbackUrl : s.url,
+      url: s.playbackUrl && /^\/api\/(?:playback|jellyfin)\/[A-Za-z0-9_-]{32}\/media\.(?:m3u8|mp4)$/.test(s.playbackUrl) ? s.playbackUrl : s.url,
       format: s.format,
       resolutions: s.resolutions,
       audioLanguages: s.audioLanguages,

@@ -1,10 +1,33 @@
-## Final audit and launch checklist
+## Production audit and launch checklist (current)
 
-See **[FINAL-AUDIT.md](FINAL-AUDIT.md)** for intended-versus-current coverage,
-verified test evidence, remaining source/TV development gaps, and exact owner
-launch steps. Hosting and TMDB enable the implemented pipeline; they do not
-provide video or guarantee every title. [deploy/README.md](deploy/README.md)
-contains the persistent service setup and authenticated preflight command.
+See **[PRODUCTION-AUDIT.md](PRODUCTION-AUDIT.md)** for the current production
+audit, verification evidence, remaining gaps and the exact launch runbook for
+branch `arena/22ae60e3-lumiere`. [deploy/README.md](deploy/README.md) contains
+the persistent service setup, owned-media/Jellyfin/transcoding guides and the
+authenticated preflight command. [FINAL-AUDIT.md](FINAL-AUDIT.md) is the previous
+engineer's historical record.
+
+## Media adapter stack
+
+Playback sources resolve through a priority-ordered adapter stack with
+timeouts, retries, per-adapter health reports and player fallback:
+
+| Adapter | What it plays | TV episodes | Status |
+| --- | --- | --- | --- |
+| `owned-media` | Your storage/CDN or licensed HTTPS endpoints declared in a library JSON (`LUMIERE_OWNED_MEDIA_FILE`); output of `npm run media:transcode` | ✅ per-episode entries | Integration-tested (6 tests) |
+| `jellyfin` | Your own Jellyfin server via its official API; direct MP4 + server-transcoded HLS fallback; API key stays server-side behind opaque same-origin grants | ✅ season/episode lookup by TMDB ID | Integration-tested (8 tests) + real-HTTP smoke |
+| `web-scrapers` | Public player pages of operator-configured sites, observed by a private Chromium worker; verified HLS/MP4 relayed same-origin | Configurable `episodeUrl`, none live-verified | One movie site live-verified in CI |
+| catalogue rows | Provider/source rows in PostgreSQL (e.g. Internet Archive imports) | ✅ episode rows | Tested |
+| `blender` | Official Blender open-movie CDN sources (demo/test catalogue) | Caminandes shorts | Tested; demos opt-in only |
+
+Supporting services: private **media worker** (`npm run media:worker`),
+**source-health sweep** (`/api/admin/health`, called by the scheduler),
+**transcoding pipeline** (`npm run media:transcode` → upload → `npm run
+media:register`), and the recurring **catalogue sync** (`/api/admin/catalogue`).
+
+TMDB supplies metadata/categories only — it never supplies video. Coverage is
+the union of your configured sources; no adapter guarantees every title, and
+no DRM/authentication/access-control bypass is implemented.
 
 ## Persistent deployment and live search
 

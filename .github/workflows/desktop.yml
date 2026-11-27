@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     tags: ['v*']
-    branches: ['arena/e423f162-lumiere']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
     paths-ignore: ['scripts/diagnose-macos.mjs', '.github/workflows/macos-diagnostics.yml', '**/*.md']
 permissions:
   contents: read

@@ -1,3 +1,8 @@
+> **Superseded:** see [PRODUCTION-AUDIT.md](PRODUCTION-AUDIT.md) (2026-11-27) for the
+> current production audit, the new owned-media/Jellyfin adapters, health monitoring,
+> transcoding pipeline and the launch runbook for branch `arena/22ae60e3-lumiere`.
+> This document is preserved as the previous engineer's record.
+
 # Lumière — final audit and launch plan
 
 ## Executive answer
