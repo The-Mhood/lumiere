@@ -8,7 +8,7 @@ export class MediaGateway {
   grants = new Map();
   secret = randomBytes(32);
   cleanedAt = 0;
-  register(url, hosts, format = mediaFormat(url), transport) {
+  register(url, hosts, format = mediaFormat(url), transport, hint) {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !hostMatches(parsed.hostname, hosts)) throw new Error('Media origin not allowed');
     const now = Date.now();
@@ -19,15 +19,16 @@ export class MediaGateway {
     const id = createHmac('sha256', this.secret).update(JSON.stringify([url, hosts])).digest('base64url').slice(0, 32);
     if (!this.grants.has(id) && this.grants.size >= 50000) throw new Error('Media gateway capacity reached');
     this.grants.set(id, { url, hosts, format, transport, expires: now + 6 * 3600000 });
-    const extension = ({ hls: 'm3u8', dash: 'mpd', mp4: 'mp4' })[format] || parsed.pathname.match(/\.(ts|m4s|aac|mp3|vtt|key|webm)$/i)?.[1]?.toLowerCase() || 'bin';
+    const extension = ({ hls: 'm3u8', dash: 'mpd', mp4: 'mp4' })[format] || parsed.pathname.match(/\.(ts|m4s|aac|mp3|vtt|key|webm)$/i)?.[1]?.toLowerCase() || hint || 'bin';
     return `/stream/${id}/media.${extension}`;
   }
   rewriteHls(text, base, hosts, transport) {
-    const uri = value => this.register(new URL(value, base).href, hosts, undefined, transport).replace('/stream/', '/api/playback/');
+    const mediaHint = text.includes('#EXTINF:') ? (text.includes('#EXT-X-MAP:') ? 'm4s' : 'ts') : undefined;
+    const uri = (value, hint) => this.register(new URL(value, base).href, hosts, undefined, transport, hint).replace('/stream/', '/api/playback/');
     return text.split('\n').map(line => {
       if (!line.trim()) return line;
       if (line.trimStart().startsWith('#')) return line.replace(/\bURI="([^"]+)"/g, (_, value) => `URI="${uri(value)}"`);
-      return uri(line.trim());
+      return uri(line.trim(), mediaHint);
     }).join('\n');
   }
   async upstream(url, hosts, headers, signal) {
@@ -61,7 +62,13 @@ export class MediaGateway {
       let upstream;
       if (grant.transport && grant.format !== 'mp4') {
         const data = await grant.transport(grant.url, headers.Range);
-        upstream = new Response(data.status === 204 ? null : Buffer.from(data.body, 'base64'), { status: data.status, headers: data.headers });
+        const bytes = Buffer.from(data.body, 'base64');
+        // Some CDNs mislabel media segments as images/octet-stream. Normalize
+        // only after inspecting actual container signatures, never by title.
+        if (bytes.length > 188 && bytes[0] === 0x47 && bytes[188] === 0x47) data.headers['content-type'] = 'video/mp2t';
+        else if (bytes.length > 12 && ['ftyp', 'styp', 'moof', 'moov'].includes(bytes.subarray(4, 8).toString('ascii'))) data.headers['content-type'] = 'video/mp4';
+        else if (bytes.length > 32 && bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0) data.headers['content-type'] = 'audio/aac';
+        upstream = new Response(data.status === 204 ? null : bytes, { status: data.status, headers: data.headers });
         Object.defineProperty(upstream, 'url', { value: grant.url });
       } else upstream = await this.upstream(grant.url, grant.hosts, headers, controller.signal);
       if (!upstream.ok) { console.warn(JSON.stringify({ gateway: 'upstream error', status: upstream.status, host: new URL(upstream.url).hostname })); await upstream.body?.cancel(); res.writeHead(upstream.status); res.end(); return; }
