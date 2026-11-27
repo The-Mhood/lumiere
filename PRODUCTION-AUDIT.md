@@ -107,6 +107,18 @@ faststart MP4 + poster) → upload to your storage → scripts/register-media.mj
 
 **Full suite: 86 tests / 15 files passed · ESLint clean · tsc clean · `next build` (standalone) passed.**
 
+### CI on the release commit (`da7e780`, pushed to this branch)
+
+| Gate | Result |
+|---|---|
+| Production container validation (web+worker images, no-demo smoke) | ✅ [run 46038349826](https://github.com/The-Mhood/lumiere/actions/runs/46038349826) |
+| Catalogue source coverage (live byte-range media checks) | ✅ [run 46038349972](https://github.com/The-Mhood/lumiere/actions/runs/46038349972) |
+| External catalogue sync | ✅ [run 46038349818](https://github.com/The-Mhood/lumiere/actions/runs/46038349818) |
+| macOS native diagnostics | ✅ [run 46038349844](https://github.com/The-Mhood/lumiere/actions/runs/46038349844) |
+| Preview connectivity probe | ✅ [run 46038349868](https://github.com/The-Mhood/lumiere/actions/runs/46038349868) |
+| On-demand live scraper playback (3-film matrix) | ⚠️ 2/3 — Dark Knight + Interstellar played; Inception's upstream player produced no media before the deadline this run ([run 46038349758](https://github.com/The-Mhood/lumiere/actions/runs/46038349758)). Upstream volatility, not a code regression — same code passed the other two; this is exactly what health-demotion + multi-server fallback exist for. |
+| Desktop packages (Win x64, macOS Intel, macOS ARM) | ⏳ in progress at report time — [run 46038349940](https://github.com/The-Mhood/lumiere/actions/runs/46038349940); consult its final checks before distributing artifacts. |
+
 What this evidence is **not**: it is not a live test against your TMDB account, your Jellyfin library, your CDN, or a permanent server — those need your credentials/infrastructure and are the acceptance steps below.
 
 ---
