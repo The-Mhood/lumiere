@@ -82,7 +82,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
               {title.runtimeMinutes && <span>{title.runtimeMinutes} min</span>}
               <span>{title.country}</span>
               <QualityBadge q={title.maxQuality} />
-              <span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider">{title.license.split(" — ")[0]}</span>
+
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -100,7 +100,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
                   {canScrape ? 'FIND SOURCES & PLAY' : 'WATCH NOW'}
                 </Link>
               ) : (
-                <span className="rounded-full border border-white/10 px-6 py-3 text-mist">No authorized source available</span>
+                <span className="rounded-full border border-white/10 px-6 py-3 text-mist">No playable source found</span>
               )}
               <WatchlistButton titleId={title.id} initial={inWatchlist} loggedIn={!!user} />
               {title.trailerUrl && (
@@ -110,7 +110,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
               )}
             </div>
 
-            <p className="mt-6 max-w-3xl leading-relaxed text-snow/85">{title.synopsis}</p>
+            {!title.synopsis.includes("Imported catalogue listing;") && <p className="mt-6 max-w-3xl leading-relaxed text-snow/85">{title.synopsis}</p>}
 
             <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
               {directors.length > 0 && (<div><dt className="text-mist">Director</dt><dd>{directors.map((d) => d.name).join(", ")}</dd></div>)}
@@ -138,33 +138,6 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
                   <span className={`h-2.5 w-2.5 rounded-full ${s.status === "offline" ? "bg-red-500" : s.status === "degraded" ? "bg-gold" : "bg-emerald-400"}`} title={s.status} />
                   {i === 0 && <span className="sr-only">Recommended</span>}
                 </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {title.availability.length > 0 && (
-          <section className="mt-12">
-            <h2 className="font-display text-2xl font-semibold">Where to watch</h2>
-            <p className="mt-1 text-sm text-mist">Aggregated availability across platforms. Links open the external provider page; availability is not a guarantee of in-app playback.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {title.availability.map((a) => (
-                <a key={a.id} href={a.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 rounded-xl border border-white/10 bg-ink-800 p-4 transition hover:border-ember/50">
-                  {a.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={a.logoUrl} alt="" className="h-10 w-10 rounded-lg object-cover" loading="lazy" />
-                  ) : (
-                    <span className="font-display grid h-10 w-10 place-items-center rounded-lg bg-ink-600 text-sm font-bold">{a.platform.slice(0, 2).toUpperCase()}</span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{a.platform}</p>
-                    <p className="text-xs text-mist">
-                      <span className={a.kind === "free" ? "text-emerald-300" : a.kind === "subscription" ? "text-gold" : ""}>{a.kind === "free" ? "Free" : a.kind === "subscription" ? "Subscription" : a.kind === "rent" ? "Rent" : "Buy"}</span>
-                      {a.price ? ` · ${a.price}` : ""}{a.quality ? ` · ${a.quality}` : ""}{a.region !== "GLOBAL" ? ` · ${a.region}` : ""}
-                    </p>
-                  </div>
-                  <span className="text-mist">↗</span>
-                </a>
               ))}
             </div>
           </section>

@@ -21,5 +21,7 @@ try {
   await db.update(titles).set({ featured: false });
   const featured = await db.select({ id: titles.id }).from(titles).where(and(eq(titles.externalSource, 'cinejoy'), eq(titles.kind, 'movie'))).orderBy(desc(titles.popularity)).limit(5);
   for (const title of featured) await db.update(titles).set({ featured: true }).where(eq(titles.id, title.id));
+  const candidates = await db.select({ slug: titles.slug, kind: titles.kind }).from(titles).where(eq(titles.externalSource, 'cinejoy')).orderBy(desc(titles.popularity));
+  await writeFile('.cache/preview-host/candidates.json', JSON.stringify(candidates.filter(title => title.kind === 'movie')));
   console.log(`Initialized ${catalogue.length} real movie/series listings. Playback remains on demand.`);
 } finally { await browser.close(); await closeDb(); }

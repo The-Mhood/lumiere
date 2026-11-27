@@ -12,7 +12,7 @@ const LINKS = [
   { href: "/series", label: "Series" },
   { href: "/movies?sort=rating", label: "Top Rated" },
   { href: "/movies?platform=internet-archive", label: "Classics" },
-  { href: "/aggregators", label: "Platforms" },
+  { href: "/platforms", label: "Platforms" },
   { href: "/settings", label: "Settings" },
 ];
 

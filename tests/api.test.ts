@@ -18,7 +18,9 @@ vi.mock("next/headers", () => ({
 }));
 
 const { db, closeDb } = await import("@/db");
-const { users } = await import("@/db/schema");
+const { seedDatabase } = await import('@/db/catalogue-seed');
+await seedDatabase(db);
+const { users, titles, playbackChecks } = await import("@/db/schema");
 const { queryCatalogue, getTitleBySlug } = await import("@/lib/content");
 const register = (await import("@/app/api/auth/register/route")).POST;
 const login = (await import("@/app/api/auth/login/route")).POST;
@@ -52,18 +54,10 @@ describe("catalogue", () => {
   });
   it("filters by kind, genre, year, country and sorts", async () => {
     const movies = await queryCatalogue({ kind: "movie", sort: "rating" });
-    expect(movies.items.length).toBeGreaterThan(0);
-    expect(movies.items.every((m) => m.kind === "movie")).toBe(true);
-    for (let i = 1; i < movies.items.length; i++) expect(movies.items[i - 1].rating).toBeGreaterThanOrEqual(movies.items[i].rating);
-
-    const sci = await queryCatalogue({ genre: "sci-fi" });
-    expect(sci.items.some((m) => m.slug === "tears-of-steel")).toBe(true);
-    const y = await queryCatalogue({ year: 2010 });
-    expect(y.items.map((m) => m.slug)).toContain("sintel");
-    const ar = await queryCatalogue({ country: "Argentina" });
-    expect(ar.items.map((m) => m.slug)).toEqual(["caminandes"]);
-    const search = await queryCatalogue({ q: "dragon" });
-    expect(search.items.map((m) => m.slug)).toContain("sintel");
+    expect(movies.items).toEqual([]); // Demo fixtures are no longer public catalogue content.
+    for (const query of [{ genre: 'sci-fi' }, { year: 2010 }, { country: 'Argentina' }, { q: 'dragon' }]) {
+      expect((await queryCatalogue(query)).items).toEqual([]);
+    }
   });
 
   it("hides unauthorized providers and ranks the 4K source first", async () => {
@@ -71,7 +65,7 @@ describe("catalogue", () => {
     expect(t).not.toBeNull();
     expect(t!.sources.some((s) => s.providerSlug === "legacy-mirror")).toBe(false);
     expect(t!.sources[0].resolutions).toContain("2160p");
-    expect(t!.similar.length).toBeGreaterThan(0);
+    expect(t!.similar).toEqual([]);
   });
 
   it("returns series navigation without mislabeling unrelated demo films as episode sources", async () => {
@@ -79,6 +73,30 @@ describe("catalogue", () => {
     expect(s!.seasons.length).toBe(2);
     expect(s!.seasons[0].episodes.length).toBe(3);
     expect(s!.seasons[0].episodes[0].sources).toEqual([]);
+  });
+});
+
+describe('playable-only catalogue', () => {
+  it('requires recent successful checks and hides stale, failed and demo entries', async () => {
+    const [fixture] = await db.insert(titles).values({ slug: 'checked-external-test', kind: 'movie', name: 'Checked external', synopsis: 'Test fixture', year: 2020, country: 'US', license: 'test', externalSource: 'test', externalId: 'movie:123' }).returning();
+    const { recordPlaybackLookup } = await import('@/lib/streaming/availability');
+    try {
+      expect((await queryCatalogue({ q: 'Checked external' })).items).toEqual([]);
+      await recordPlaybackLookup(fixture.id, true);
+      expect((await queryCatalogue({ q: 'Checked external' })).items.map(item => item.id)).toEqual([fixture.id]);
+      await db.update(playbackChecks).set({ checkedAt: new Date(Date.now() - 25 * 3600000) }).where(eq(playbackChecks.titleId, fixture.id));
+      expect((await queryCatalogue({ q: 'Checked external' })).items).toEqual([]);
+      await recordPlaybackLookup(fixture.id, false);
+      expect((await queryCatalogue({ q: 'Checked external' })).items).toEqual([]);
+    } finally { await db.delete(titles).where(eq(titles.id, fixture.id)); }
+  });
+  it('never falls back to unrelated local movies when platform metadata is missing', async () => {
+    vi.stubEnv('TMDB_API_KEY', ''); vi.stubEnv('TMDB_READ_ACCESS_TOKEN', '');
+    try {
+      const result = await queryCatalogue({ watchProvider: 8 });
+      expect(result.items).toEqual([]);
+      expect(result.discoveryNotice).toContain('not configured');
+    } finally { vi.unstubAllEnvs(); }
   });
 });
 

@@ -32,6 +32,7 @@ export function parseQuery(sp: SearchParams, kind?: "movie" | "series"): Catalog
 function buildHref(base: string, q: CatalogueQuery, patch: Partial<CatalogueQuery>) {
   const merged = { ...q, ...patch, page: patch.page ?? 1 };
   const p = new URLSearchParams();
+  if (base.startsWith("/platforms/") && merged.kind) p.set("kind", merged.kind);
   if (merged.genre) p.set("genre", merged.genre);
   if (merged.year) p.set("year", String(merged.year));
   if (merged.country) p.set("country", merged.country);
@@ -84,7 +85,6 @@ export async function Catalogue({ base, query, heading, intro }: { base: string;
           <Chip active={query.quality === "1080p"} href={buildHref(base, query, { quality: "1080p" })}>1080p</Chip>
           <span className="ml-3 self-center text-xs uppercase tracking-wider text-mist/70">Platform</span>
           <Chip active={!query.platform} href={buildHref(base, query, { platform: undefined })}>All</Chip>
-          <Chip active={query.platform === "curated"} href={buildHref(base, query, { platform: "curated" })}>Lumière Originals</Chip>
           <Chip active={query.platform === "internet-archive"} href={buildHref(base, query, { platform: "internet-archive" })}>Internet Archive</Chip>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">

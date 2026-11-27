@@ -64,14 +64,14 @@ export const closeDb: () => Promise<void> = _close;
 
 await bootstrapSchema(db);
 
-// First boot on an empty database: load the curated (openly licensed)
-// catalogue so the app is usable immediately — no manual seed step.
+// Demo seeding is opt-in for test/development fixtures only. Production
+// starts empty rather than presenting sample videos as the movie catalogue.
 // User data is never touched: this only runs when there are no titles.
 try {
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(schema.titles);
-  if (count === 0) {
+  if (count === 0 && process.env.LUMIERE_SEED_DEMOS === "1") {
     const { seedDatabase } = await import("./catalogue-seed");
     await db.transaction(async (tx) => { await seedDatabase(tx as unknown as LumiereDb); });
   }

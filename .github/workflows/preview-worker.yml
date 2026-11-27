@@ -42,6 +42,8 @@ jobs:
       - name: Verify playback from actual app preview
         continue-on-error: true
         run: node scripts/verify-preview-app.mjs
+      - name: Check movie sources and publish only successful lookups
+        run: node scripts/check-preview-catalogue.mjs
       - name: Keep development preview available for three hours
         if: ${{ !cancelled() }}
         run: node scripts/hold-preview-host.mjs

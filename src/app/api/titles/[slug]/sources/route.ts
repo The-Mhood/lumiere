@@ -1,3 +1,4 @@
+import { recordPlaybackLookup } from "@/lib/streaming/availability";
 import { getTitleBySlug } from "@/lib/content";
 import { playbackIdentity } from "@/lib/streaming/identity";
 import { getResolver } from "@/lib/streaming/providers";
@@ -13,5 +14,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     if (!episodes.some((e) => e.id === episodeId)) return Response.json({ error: "Episode not found" }, { status: 404 });
   } else if (episodeId !== undefined) return Response.json({ error: "Movie does not have episodes" }, { status: 400 });
   const result = await (await getResolver()).resolve(playbackIdentity(title, episodeId));
+  await recordPlaybackLookup(title.id, result.sources.length > 0);
   return Response.json(result, { headers: { "Cache-Control": "no-store" } });
 }

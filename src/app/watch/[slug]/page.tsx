@@ -1,3 +1,4 @@
+import { recordPlaybackLookup } from "@/lib/streaming/availability";
 import Link from "next/link";
 import { playbackIdentity } from "@/lib/streaming/identity";
 import { getResolver } from "@/lib/streaming/providers";
@@ -38,6 +39,7 @@ export default async function WatchPage({
   const remotePreview = remotePreviewConfigured() && title.kind === 'movie' && Boolean(playbackIdentity(title).tmdbId);
   const resolution = remotePreview ? { sources: [], reports: [] } : await (await getResolver()).resolve(playbackIdentity(title, episode?.id));
   const sources = resolution.sources;
+  if (!remotePreview) await recordPlaybackLookup(title.id, sources.length > 0);
   const idx = episode ? allEpisodes.findIndex((e) => e.id === episode!.id) : -1;
   const prev = idx > 0 ? allEpisodes[idx - 1] : undefined;
   const next = idx >= 0 && idx < allEpisodes.length - 1 ? allEpisodes[idx + 1] : undefined;

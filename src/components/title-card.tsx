@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Children } from "react";
 import type { TitleCard as TitleCardData } from "@/lib/content";
 
 export function Poster({
@@ -32,6 +33,7 @@ export function Poster({
 }
 
 export function QualityBadge({ q }: { q: string }) {
+  if (q === "unverified") return null;
   const label = q === "unverified" ? "LISTING" : q === "2160p" ? "4K" : q === "1440p" ? "QHD" : q === "1080p" ? "FHD" : q === "720p" ? "HD" : q.toUpperCase();
   return (
     <span
@@ -47,7 +49,7 @@ export function QualityBadge({ q }: { q: string }) {
 export function TitleCard({ item, progress }: { item: TitleCardData; progress?: number }) {
   return (
     <Link
-      href={`/title/${item.slug}`}
+      href={`/watch/${item.slug}`}
       className="group relative block w-36 shrink-0 sm:w-44 lg:w-48"
       aria-label={`${item.name} (${item.year})`}
     >
@@ -96,6 +98,7 @@ export function Rail({
   subtitle?: string;
   children: React.ReactNode;
 }) {
+  if (!Children.toArray(children).length) return null;
   return (
     <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-6">
       <div className="mb-3 flex items-end justify-between">
