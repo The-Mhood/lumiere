@@ -1,0 +1,85 @@
+name: Desktop packages
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
+    paths-ignore: ['scripts/diagnose-macos.mjs', '.github/workflows/macos-diagnostics.yml', '**/*.md']
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            target: mac
+            arch: x64
+          - os: macos-15
+            target: mac
+            arch: arm64
+          - os: windows-latest
+            target: win
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Build standalone server
+        env:
+          LUMIERE_DESKTOP_SERVER_URL: ${{ vars.LUMIERE_DESKTOP_SERVER_URL }}
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run desktop:prepare 2>&1 | tee native-build.log
+      - name: Report build failure
+        if: failure()
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); if(fs.existsSync('native-build.log')) console.log('::error::'+fs.readFileSync('native-build.log','utf8').slice(-12000).replaceAll('%','%25').replaceAll('\\r','%0D').replaceAll('\\n','%0A'));"
+      - name: Package native application
+        id: packaging
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ "${{ matrix.target }}" = "mac" ]; then
+            npx electron-builder --mac --${{ matrix.arch }} --config.productName=Lumiere --config.mac.identity=- --config.mac.hardenedRuntime=false --publish never 2>&1 | tee native-package.log
+          else
+            npx electron-builder --win --publish never 2>&1 | tee native-package.log
+          fi
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Launch packaged application
+        if: ${{ !cancelled() && steps.packaging.outcome != 'skipped' }}
+        timeout-minutes: 15
+        env:
+          LUMIERE_LIVE_MEDIA_TEST: '1'
+          # Hosted Intel runners report EGL initialization failures; use software
+          # rendering in CI only. Shipped applications retain GPU acceleration.
+          LUMIERE_DISABLE_GPU: ${{ matrix.arch == 'x64' && matrix.target == 'mac' && '1' || '0' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/desktop-smoke.mjs 2>&1 | tee native-smoke.log
+      - name: Report native failure
+        if: failure()
+        shell: bash
+        run: |
+          node scripts/report-native-failure.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Lumiere-${{ matrix.target }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*Setup.exe
+          if-no-files-found: error

@@ -1,0 +1,229 @@
+## Search, operations, deployment tooling — latest update
+
+Implementation commit `7119a13` adds:
+
+- Matching TMDB movie/TV search, with real series identities and episode metadata;
+  results explicitly distinguish discovery from source availability. Empty input
+  does not call upstream, and people results are excluded from movie/TV cards.
+- Private authenticated catalogue scheduling/status, rotating provider metadata,
+  real genre associations and bounded source checks. Source failures are not
+  promoted to public playable rails. Single-app-process scheduling only.
+- Docker web + Chromium worker images, private worker network, durable app volume,
+  HTTPS Caddy proxy and recurring scheduler. Generated private secrets are ignored.
+- Public HTTPS server origin in Windows/macOS builds via repository Actions
+  variable `LUMIERE_DESKTOP_SERVER_URL`, without embedding provider secrets.
+  The bundled backend and isolated local native regression path are retained.
+- Default production routes/library/history omit old sample films; existing data
+  is preserved rather than deleted. Demo fixtures remain explicitly test-only.
+
+**Verified:** local 61 tests / 11 files, lint, typecheck, standalone build pass.
+Production image CI **46027615252** passed both builds and live web-container
+health/platform/search-without-demos checks. Docker is unavailable in this sandbox;
+these container executions were performed on the GitHub runner. They do not
+certify a real TMDB credential, the Compose TLS/domain deployment, worker access
+from a future host, or all-site media availability.
+
+**Owner action required:** follow `deploy/README.md`: obtain TMDB's own read token,
+provision a Docker host/domain, configure private `deploy/.env`, start Compose,
+then set the public desktop server origin and build installers. Never send
+credentials in chat or commit them. No permanent hosting account was provisioned.
+
+**Remaining development/release gates:** one real movie-site adapter only; no
+verified TV source template; no universal media access; platform categories
+cannot populate here while TMDB credentials remain absent. TV episode metadata
+support does not mean TV playback works. Signing/notarization, service-backed
+native acceptance, backup/restore, load and security review remain outstanding.
+The product must not be described as finished or every source connected.
+
+---
+
+## Playable-only catalogue and Platforms update
+
+Implemented at `61a7760` (native fixture isolation at `2d2fdaa`):
+
+- Public home/search/movie/series/genre/recommendation queries exclude demo seeds
+  and require a successful source lookup within 24 hours. Missing, failed, or
+  stale checks hide listings; the on-demand resolver still refreshes actual media
+  URLs when watching. A successful lookup is not a guarantee of full-film viewing.
+- No Cinejoy-branded home rail, fake “Lumière Originals” filter, or automatically
+  seeded sample films. Existing user data is preserved, not destructively reset.
+- `/platforms` contains Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Hulu,
+  Paramount+, and Peacock; `/platforms/:id` has movie/series selection and regional
+  TMDB provider filtering. Platform membership and playback source are separate.
+  Missing metadata configuration fails closed rather than showing unrelated films.
+- Public title cards open the internal player. Title pages no longer offer external
+  streaming-platform redirects. Source checks progressively publish real movie
+  listings through the hosted preview workflow (up to 120 candidates per session).
+- Schema addition `playback_checks` is additive, with cascading title references.
+  Test/demo database seeding requires `LUMIERE_SEED_DEMOS=1`; packaged regression
+  tests explicitly opt in, while public discovery remains demo-free by default.
+
+Current hosted application: deployment **8113434786**, app commit `61a7760`,
+[run 46024723607](https://github.com/The-Mhood/lumiere/actions/runs/46024723607).
+The actual Godfather playback-and-seek gate passed again. Its temporary expiry is
+2026-11-27 18:26:28 UTC. The source catalogue scan runs independently afterward.
+The workspace port-3100 shell now points to this replacement deployment.
+
+Local validation: **56 tests / 11 files passed**, lint/typecheck and production
+standalone build passed. Deployed catalogue UI assertions run separately through
+`preview-connectivity.yml`.
+
+**Not complete:** TMDB credentials are still absent, so Netflix/Prime/HBO catalogue
+contents cannot currently populate. There is one real movie-site adapter, not
+access to all platforms. TV episode scraping/playback is not implemented or
+verified; unsupported series stay hidden. Permanent hosting and native acceptance
+of these new catalogue changes are not certified. This update must not be
+represented as “total development complete” or universal playable coverage.
+
+---
+
+## Connected full-app movie preview — current verification
+
+At commit `4ebf43e`, workflow [46015195289](https://github.com/The-Mhood/lumiere/actions/runs/46015195289)
+built and hosted the actual Next application beside its private browser media
+worker. A public HTTPS development tunnel serves both the application and the
+same-origin opaque media relay. The automated browser opened the real app's
+`/watch/the-godfather-1972` page, decoded video, played beyond two seconds,
+required a duration over 10,000 seconds, sought to 120 seconds, and continued
+beyond 121 seconds. GitHub deployment **8112093990** records this as
+“Verified: actual app movie playback and seeking passed”. This is separate from
+the earlier independent three-film scraper/relay test.
+
+The workspace port-3100 preview embeds the hosted app using the local, ignored
+`LUMIERE_REMOTE_APP_URL` setting. A standalone link is provided because browser
+privacy settings may restrict login/storage inside cross-site frames. The app
+is hosted remotely because this sandbox cannot reach the upstream site; the
+sandbox preview itself requires an Arena traffic token and cannot be opened
+by the external verifier. No traffic-token bypass is used.
+
+**Temporary only:** this runner deployment expires after three hours (its
+initial expiry is 2026-11-27 17:22:44 UTC), or sooner on cancellation/failure.
+Its accounts/history are ephemeral; production hosting is not provisioned.
+The latest endpoint/state is published through GitHub's `lumiere-preview`
+deployments API. Dispatch `preview-worker.yml` to start a fresh development
+session, then update the ignored local `LUMIERE_REMOTE_APP_URL` and restart the
+workspace server. No owner-managed VPS or additional hosting account was used.
+
+Coverage remains one real movie-site adapter, **not** all sites or every TMDB
+title. TMDB credentials are still absent. TV playback, universal title coverage,
+permanent hosting, full-film viewing, and native certification of this remote
+path remain outstanding. Older catalogue-only and nine-demo notes below are
+historical and must not override this more recent, specifically scoped result.
+Local typecheck, lint, 52 tests, and standalone production build passed.
+
+---
+
+# Lumière implementation delivery — 2026-11-26
+
+## Expanded on-demand implementation checkpoint
+
+This supersedes the earlier statement that no Cinejoy playback adapter exists.
+The **implementation** now includes live TMDB movie discovery/search, provider and
+genre categories, lazy persistence of clicked titles, external-identity propagation,
+a multi-site browser-scraper worker interface, and a supplied Cinejoy movie adapter.
+An opaque same-origin relay handles HLS manifests, relative media/key URLs, range
+requests, origin-bound fetches and verified segment container/MIME normalization.
+Worker credentials and cookies are never sent to the application browser.
+
+**Live acceptance: Inception (2010), TMDB 27205 — PASS**, resolved without a catalogue
+import and played by Shaka in a separate browser context through the actual Next relay
+handler: https://github.com/The-Mhood/lumiere/actions/runs/45977225332 (application
+checkpoint `88a0883`). Report: duration 8888.296 seconds, currentTime 2.024 seconds,
+readyState 4. Earlier direct-URL/CORS/container failures are not passing results;
+this run passed after their fixes.
+
+**Three-title live playback and seeking: PASS** at `60661d3`:
+https://github.com/The-Mhood/lumiere/actions/runs/45977527590.
+
+| Movie | TMDB ID | Full-film duration reported | Playback / seek to 2 min |
+| --- | --- | --- | --- |
+| Inception (2010) | 27205 | 8888.296 s | PASS / PASS |
+| Interstellar (2014) | 157336 | 10144.217 s | PASS / PASS |
+| The Dark Knight (2008) | 155 | 9132.228 s | PASS / PASS |
+
+All were resolved live without catalogue imports. This tests playback startup,
+full-film duration and seeking, not uninterrupted end-to-end viewing of each film.
+Local unit suite: **49 tests**, type checking, lint and production standalone build pass.
+
+**Not completed:** all websites/all movies coverage; the supplied live adapter is
+Cinejoy movies only. Its TV episode URL is intentionally not invented. The worker
+is a separate Chromium service, not yet packaged into the native installers. The
+preview sandbox has no configured TMDB credential and its outbound network cannot
+reach Cinejoy directly, so the preview is not represented as an active universal
+streaming deployment. See `scrapers/README.md` for deployment configuration.
+
+The native nine-film results below are an earlier, separately verified checkpoint,
+not certification of this newly added worker path across OS installations.
+
+## Cross-platform movie acceptance: PASS
+
+Verified application commit: `cb369255a88b7ab6597c1c4eae436c73018958c6` on `arena/e423f162-lumiere`.
+Native run: https://github.com/The-Mhood/lumiere/actions/runs/45909171541 — all three jobs succeeded.
+
+| Platform | Packaged app acceptance | Download |
+| --- | --- | --- |
+| Windows x64 | PASS | [NSIS installer artifact](https://github.com/The-Mhood/lumiere/actions/runs/45909171541/artifacts/15158644831) |
+| macOS Apple Silicon | PASS | [DMG / ZIP artifact](https://github.com/The-Mhood/lumiere/actions/runs/45909171541/artifacts/15159134689) |
+| macOS Intel | PASS | [DMG / ZIP artifact](https://github.com/The-Mhood/lumiere/actions/runs/45909171541/artifacts/15158624819) |
+
+All **nine movies currently in the curated catalogue** started in the packaged player on each platform: Big Buck Bunny, Sintel, Tears of Steel, Elephants Dream, Cosmos Laundromat, Spring, Agent 327: Operation Barbershop, Sprite Fright, and Charge. This does not claim coverage of movies outside this catalogue or end-to-end viewing of each entire film.
+
+Each platform also passed search, detail pages, device preferences, forced primary-source failure and fallback playback, pause, seek, media fullscreen entry/display bounds/exit, and restart persistence. Native packages include the backend and require no user-installed Node/server. These tests launch the packaged executable; they do not automate installer installation/upgrade.
+
+The macOS pre-ready SIGTRAP was resolved with ASCII bundle/executable identity `Lumiere`, retaining the accented display name. The later media-fullscreen exit hang was resolved by separating HTML fullscreen from macOS Spaces animations and using reversible simple fullscreen. Hardware acceleration is enabled normally; `LUMIERE_DISABLE_GPU=1` is the diagnostic opt-out.
+
+Live source range verification for all nine passed separately: https://github.com/The-Mhood/lumiere/actions/runs/45900152027. The native jobs also passed type checking and all 28 unit tests; local lint passed.
+
+`src/lib/streaming/blender.ts` resolves official metadata, checks title/year identity and full-film duration, rejects unrelated trailers/documentaries and untrusted hosts, and normalizes public HLS/MP4/VTT sources. `blender-verified.json` provides verified stable public MP4 URLs for metadata outages, not extracted protected tokens. Title details, the detail API, and watch pages share the resolver.
+
+## Implemented
+
+- Fixed broken search imports, search suggestions, invalid paging, offline font builds and standalone configuration.
+- Preserved PostgreSQL/Drizzle and added a persistent embedded PostgreSQL/PGlite mode with schema bootstrap and transactional first-boot catalogue initialization. One embedded client is shared across route bundles.
+- Added provider adapter/resolver contracts, isolated provider failures, deadlines, retries, priorities, normalized sources, health reports and a source-resolution API.
+- Fixed same-source retry, stale adaptive-player callbacks, bounded loading, source-switch position preservation, external adaptive subtitles and next-episode progression.
+- Added persistent device preferences and a settings screen; retained account watchlist/progress flows.
+- Added original typographic catalogue covers and a desktop icon.
+- Added Electron startup/server lifecycle, loopback-only backend, per-install secret/data storage, stable storage origin, window persistence, navigation/popup restrictions, native build scripts and CI smoke/live-media tests.
+- Patched Next.js security advisories; stopped tracking the development `.env` and rejected insecure production signing-key defaults.
+
+## Remaining public-release gates
+
+- **Signing and installation:** Windows is unsigned; macOS is CI ad-hoc signed, not Developer-ID signed/notarized. Target-machine installation, upgrade and OS security prompts require release-team testing. No automatic updater is configured.
+- **Extended playback:** complete MP4/HLS/DASH endpoint coverage, subtitle rendering, audio/quality switching and long-duration recovery are not certified by these smoke tests.
+- **Episodes:** real Caminandes names have adapter support, but actual episode playback/progression is not acceptance-tested. Fabricated second-season fixtures remain unavailable rather than mapped to unrelated media.
+- **Editorial:** existing catalogue metadata still needs editorial review; bundled covers are original typographic artwork, not official posters.
+
+The nine-movie cross-platform acceptance goal is met. These remaining gates mean this is still a **test release, not a signed production-ready public release**. Older reports of macOS launch failure and missing curated-movie sources are superseded by the run above.
+
+## Running / building
+
+See `README.md` and `.env.example`. `npm run dev -- --hostname 0.0.0.0` starts development without an external DB. `npm run desktop:prepare` creates the standalone server. Native build commands are `npm run desktop:win` and `npm run desktop:mac`; native CI contains the explicit ad-hoc macOS test signing flags. User data is outside the installed app; never bundle a development database or `.env`.
+
+## Cinejoy integration update — catalogue only, not playback completion
+
+The expanded scope (all-source mainstream movie playback) is **not complete**.
+The legacy Python helper is not used by the application. A TypeScript Cinejoy
+catalogue adapter is now registered and tested; it imports movie/series identities,
+posters and external availability links, never fictitious playback URLs.
+
+The preview database contains 128 listings imported from a real rendered Cinejoy
+homepage. The homepage has a dedicated catalogue rail, and search/details work.
+A repeated import updated all 128 without duplicates. Catalogue-only items carry
+a LISTING badge instead of an invented playback quality.
+
+Cinejoy's initial HTTP document is an empty SPA shell. The browser worker in
+`scripts/render-catalogue.mjs` produces `catalogue-report/home.html`; import using
+`npx tsx scripts/sync-external-catalogue.ts catalogue-report/home.html`.
+Install its browser first with `npx playwright install chromium`.
+Set `CINEJOY_RENDERED_HTML` to that rendered HTML path to enable local re-import
+from the aggregators page. Re-importing the snapshot does not refresh upstream;
+rerun the browser worker to obtain fresh listings. The external-catalogue workflow
+verifies rendering and imports into an ephemeral database. No extracted application
+keys or third-party account credentials are used.
+
+Playback inspection found public info/server discovery at `api2.wing.st`; actual
+playback invokes a separate `/g` flow alongside a WASM module. No working Lumière
+adapter for that playback flow is implemented or certified. The nine official
+Blender films remain the verified in-app playback coverage. The 128 listings must
+not be described as 128 playable films or a completed Cinejoy integration.

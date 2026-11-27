@@ -1,0 +1,90 @@
+services:
+  web:
+    build:
+      context: ..
+      target: web
+    restart: unless-stopped
+    init: true
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET}
+      AGGREGATOR_TOKEN: ${AGGREGATOR_TOKEN:?Set AGGREGATOR_TOKEN}
+      TMDB_READ_ACCESS_TOKEN: ${TMDB_READ_ACCESS_TOKEN:?Set TMDB_READ_ACCESS_TOKEN}
+      TMDB_WATCH_REGION: ${TMDB_WATCH_REGION:-US}
+      COOKIE_SECURE: 'true'
+      LUMIERE_MEDIA_WORKER_URL: http://worker:3200
+      LUMIERE_MEDIA_WORKER_TOKEN: ${LUMIERE_MEDIA_WORKER_TOKEN:?Set LUMIERE_MEDIA_WORKER_TOKEN}
+      # Operator-owned/licensed media library (optional; file may not exist yet)
+      LUMIERE_OWNED_MEDIA_FILE: /library/owned-media.json
+      # Operator's own Jellyfin server (optional; official API integration)
+      LUMIERE_JELLYFIN_URL: ${LUMIERE_JELLYFIN_URL:-}
+      LUMIERE_JELLYFIN_API_KEY: ${LUMIERE_JELLYFIN_API_KEY:-}
+      LUMIERE_JELLYFIN_PRIORITY: ${LUMIERE_JELLYFIN_PRIORITY:-10}
+      LUMIERE_JELLYFIN_ALLOW_HTTP: ${LUMIERE_JELLYFIN_ALLOW_HTTP:-}
+    volumes:
+      - app-data:/data
+      - ./library:/library:ro
+    depends_on:
+      worker:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+  worker:
+    build:
+      context: ..
+      target: worker
+    restart: unless-stopped
+    init: true
+    shm_size: 1gb
+    environment:
+      LUMIERE_MEDIA_WORKER_TOKEN: ${LUMIERE_MEDIA_WORKER_TOKEN:?Set LUMIERE_MEDIA_WORKER_TOKEN}
+      LUMIERE_SCRAPER_CONCURRENCY: '2'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3200/health',{headers:{Authorization:'Bearer '+process.env.LUMIERE_MEDIA_WORKER_TOKEN}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+  scheduler:
+    image: node:22-bookworm-slim
+    restart: unless-stopped
+    init: true
+    environment:
+      AGGREGATOR_TOKEN: ${AGGREGATOR_TOKEN:?Set AGGREGATOR_TOKEN}
+    volumes:
+      - ./scheduler.mjs:/scheduler.mjs:ro
+    command: ['node', '/scheduler.mjs']
+    depends_on:
+      web:
+        condition: service_healthy
+  transcode:
+    build:
+      context: ..
+      dockerfile: deploy/transcode.Dockerfile
+    profiles: ['tools']
+    volumes:
+      - ./media:/media
+      - ./library:/library
+    working_dir: /app
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      LUMIERE_DOMAIN: ${LUMIERE_DOMAIN:?Set LUMIERE_DOMAIN}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

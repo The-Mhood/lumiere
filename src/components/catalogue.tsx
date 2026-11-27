@@ -22,6 +22,7 @@ export function parseQuery(sp: SearchParams, kind?: "movie" | "series"): Catalog
     country: one("country") || undefined,
     quality: one("quality") || undefined,
     platform: one("platform") || undefined,
+    watchProvider: /^\d+$/.test(one("watchProvider") ?? "") ? Number(one("watchProvider")) : undefined,
     q: one("q") || undefined,
     sort: SORTS.some((s) => s.key === sort) ? sort : "popular",
     page: one("page") ? Number(one("page")) : 1,
@@ -31,10 +32,12 @@ export function parseQuery(sp: SearchParams, kind?: "movie" | "series"): Catalog
 function buildHref(base: string, q: CatalogueQuery, patch: Partial<CatalogueQuery>) {
   const merged = { ...q, ...patch, page: patch.page ?? 1 };
   const p = new URLSearchParams();
+  if (base.startsWith("/platforms/") && merged.kind) p.set("kind", merged.kind);
   if (merged.genre) p.set("genre", merged.genre);
   if (merged.year) p.set("year", String(merged.year));
   if (merged.country) p.set("country", merged.country);
   if (merged.quality) p.set("quality", merged.quality);
+  if (merged.watchProvider) p.set("watchProvider", String(merged.watchProvider));
   if (merged.platform) p.set("platform", merged.platform);
   if (merged.q) p.set("q", merged.q);
   if (merged.sort && merged.sort !== "popular") p.set("sort", merged.sort);
@@ -46,17 +49,7 @@ function buildHref(base: string, q: CatalogueQuery, patch: Partial<CatalogueQuer
 export async function Catalogue({ base, query, heading, intro }: { base: string; query: CatalogueQuery; heading: string; intro?: string }) {
   const [result, genres, countries, years] = await Promise.all([queryCatalogue(query), listGenres(), listCountries(), listYears()]);
 
-  const Chip = ({ active, href, children }: { active: boolean; href: string; children: React.ReactNode }) => (
-    <Link
-      href={href}
-      scroll={false}
-      className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
-        active ? "border-ember bg-ember text-ink font-semibold" : "border-white/10 text-mist hover:border-white/30 hover:text-snow"
-      }`}
-    >
-      {children}
-    </Link>
-  );
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
@@ -92,7 +85,6 @@ export async function Catalogue({ base, query, heading, intro }: { base: string;
           <Chip active={query.quality === "1080p"} href={buildHref(base, query, { quality: "1080p" })}>1080p</Chip>
           <span className="ml-3 self-center text-xs uppercase tracking-wider text-mist/70">Platform</span>
           <Chip active={!query.platform} href={buildHref(base, query, { platform: undefined })}>All</Chip>
-          <Chip active={query.platform === "curated"} href={buildHref(base, query, { platform: "curated" })}>Lumière Originals</Chip>
           <Chip active={query.platform === "internet-archive"} href={buildHref(base, query, { platform: "internet-archive" })}>Internet Archive</Chip>
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
@@ -109,6 +101,7 @@ export async function Catalogue({ base, query, heading, intro }: { base: string;
       </div>
 
       <div className="mt-8">
+        {result.discoveryNotice && <p role="status" className="mb-4 text-sm text-gold">{result.discoveryNotice}</p>}
         <PosterGrid items={result.items} />
       </div>
 
@@ -131,3 +124,15 @@ export async function Catalogue({ base, query, heading, intro }: { base: string;
     </div>
   );
 }
+
+const Chip = ({ active, href, children }: { active: boolean; href: string; children: React.ReactNode }) => (
+    <Link
+      href={href}
+      scroll={false}
+      className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs transition ${
+        active ? "border-ember bg-ember text-ink font-semibold" : "border-white/10 text-mist hover:border-white/30 hover:text-snow"
+      }`}
+    >
+      {children}
+    </Link>
+  );

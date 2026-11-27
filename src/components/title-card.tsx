@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Children } from "react";
 import type { TitleCard as TitleCardData } from "@/lib/content";
 
 export function Poster({
@@ -32,7 +33,8 @@ export function Poster({
 }
 
 export function QualityBadge({ q }: { q: string }) {
-  const label = q === "2160p" ? "4K" : q === "1440p" ? "QHD" : q === "1080p" ? "FHD" : q === "720p" ? "HD" : q.toUpperCase();
+  if (q === "unverified") return null;
+  const label = q === "unverified" ? "LISTING" : q === "2160p" ? "4K" : q === "1440p" ? "QHD" : q === "1080p" ? "FHD" : q === "720p" ? "HD" : q.toUpperCase();
   return (
     <span
       className={`rounded px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-wide ${
@@ -47,7 +49,7 @@ export function QualityBadge({ q }: { q: string }) {
 export function TitleCard({ item, progress }: { item: TitleCardData; progress?: number }) {
   return (
     <Link
-      href={`/title/${item.slug}`}
+      href={`/watch/${item.slug}`}
       className="group relative block w-36 shrink-0 sm:w-44 lg:w-48"
       aria-label={`${item.name} (${item.year})`}
     >
@@ -58,9 +60,9 @@ export function TitleCard({ item, progress }: { item: TitleCardData; progress?: 
           <QualityBadge q={item.maxQuality} />
           {item.kind === "series" && <span className="rounded bg-ember px-1.5 py-0.5 text-[10px] font-bold leading-none text-ink">SERIES</span>}
         </div>
-        <div className="absolute right-2 top-2 flex items-center gap-1 rounded bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-gold backdrop-blur">
+        {item.rating > 0 && <div className="absolute right-2 top-2 flex items-center gap-1 rounded bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-gold backdrop-blur">
           ★ {item.rating.toFixed(1)}
-        </div>
+        </div>}
         <div className="absolute inset-x-0 bottom-0 flex translate-y-2 items-center justify-center pb-4 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-ember text-ink shadow-lg">
             <svg viewBox="0 0 24 24" className="ml-0.5 h-5 w-5" fill="currentColor">
@@ -96,6 +98,7 @@ export function Rail({
   subtitle?: string;
   children: React.ReactNode;
 }) {
+  if (!Children.toArray(children).length) return null;
   return (
     <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-6">
       <div className="mb-3 flex items-end justify-between">

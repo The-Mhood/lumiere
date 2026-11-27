@@ -1,0 +1,42 @@
+{
+  "verifiedAt": "2026-11-26",
+  "verificationRun": "https://github.com/The-Mhood/lumiere/actions/runs/45899785569",
+  "description": "Stable public MP4 files from the official Blender Open Movies API. Verified using ranged video requests. Bootstrap fallback only; no signed/expiring URLs.",
+  "films": {
+    "charge": [
+      "https://video.blender.org/object-storage/web_videos/020223f7-9721-4288-afab-71594f8d2411-1608.mp4"
+    ],
+    "sprite-fright": [
+      "https://video.blender.org/object-storage/web_videos/a69d68a5-a0e0-4a80-9d66-49f093c97aaf-804.mp4",
+      "https://video.blender.org/object-storage/web_videos/a69d68a5-a0e0-4a80-9d66-49f093c97aaf-720.mp4"
+    ],
+    "agent-327-operation-barbershop": [
+      "https://video.blender.org/object-storage/web_videos/264ff760-803e-430e-8d81-15648e904183-804.mp4",
+      "https://video.blender.org/object-storage/web_videos/264ff760-803e-430e-8d81-15648e904183-720.mp4"
+    ],
+    "spring": [
+      "https://video.blender.org/object-storage/web_videos/3d95fb3d-c866-42c8-9db1-fe82f48ccb95-804.mp4",
+      "https://video.blender.org/object-storage/web_videos/3d95fb3d-c866-42c8-9db1-fe82f48ccb95-720.mp4"
+    ],
+    "cosmos-laundromat": [
+      "https://video.blender.org/object-storage/web_videos/f507dfdc-e73e-45a4-9778-d758cbe1ce96-804.mp4",
+      "https://video.blender.org/object-storage/web_videos/f507dfdc-e73e-45a4-9778-d758cbe1ce96-720.mp4"
+    ],
+    "elephants-dream": [
+      "https://video.blender.org/object-storage/web_videos/cccc3e60-0291-4ecc-aa56-39b2e2c7d0d5-720.mp4",
+      "https://video.blender.org/object-storage/web_videos/cccc3e60-0291-4ecc-aa56-39b2e2c7d0d5-480.mp4"
+    ],
+    "tears-of-steel": [
+      "https://video.blender.org/object-storage/web_videos/8533ea43-4271-4a57-9694-e9d0b35e1aa1-800.mp4",
+      "https://video.blender.org/object-storage/web_videos/8533ea43-4271-4a57-9694-e9d0b35e1aa1-720.mp4"
+    ],
+    "sintel": [
+      "https://video.blender.org/object-storage/web_videos/0eb052d0-fd51-43e6-aa33-ecdbf77a5d40-818.mp4",
+      "https://video.blender.org/object-storage/web_videos/0eb052d0-fd51-43e6-aa33-ecdbf77a5d40-720.mp4"
+    ],
+    "big-buck-bunny": [
+      "https://video.blender.org/object-storage/web_videos/6402b77c-b61f-4a06-96ca-c8420a2becf4-1080.mp4",
+      "https://video.blender.org/object-storage/web_videos/6402b77c-b61f-4a06-96ca-c8420a2becf4-720.mp4"
+    ]
+  }
+}

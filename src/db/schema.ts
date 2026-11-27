@@ -287,3 +287,16 @@ export type Provider = typeof providers.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Availability = typeof availability.$inferSelect;
 export type AggregatorRun = typeof aggregatorRuns.$inferSelect;
+
+/** Recent identity-matched source lookup, never an invented quality/availability flag. */
+export const playbackChecks = pgTable('playback_checks', {
+  titleId: integer('title_id').primaryKey().references(() => titles.id, { onDelete: 'cascade' }),
+  available: boolean('available').notNull().default(false),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const episodePlaybackChecks = pgTable('episode_playback_checks', {
+  episodeId: integer('episode_id').primaryKey().references(() => episodes.id, { onDelete: 'cascade' }),
+  available: boolean('available').notNull().default(false),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -1,0 +1,29 @@
+name: macOS native diagnostics
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
+    paths: ['scripts/diagnose-macos.mjs', '.github/workflows/macos-diagnostics.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:prepare
+      - run: npx electron-builder --mac --dir --config.productName=Lumiere --config.mac.identity=- --config.mac.hardenedRuntime=false --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - run: node scripts/diagnose-macos.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-native-diagnostics
+          path: mac-native-trace.log

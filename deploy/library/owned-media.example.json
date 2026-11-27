@@ -1,0 +1,29 @@
+{
+  "provider": { "id": "owned-media", "name": "Lumière Library", "priority": 5 },
+  "allowedHosts": ["cdn.example.com"],
+  "items": [
+    {
+      "tmdbId": 27205,
+      "kind": "movie",
+      "sources": [
+        {
+          "url": "https://cdn.example.com/library/inception/hls/master.m3u8",
+          "format": "hls",
+          "label": "Library · HLS",
+          "resolutions": ["1080p", "720p", "480p"],
+          "subtitles": [{ "lang": "en", "label": "English", "url": "https://cdn.example.com/library/inception/en.vtt" }]
+        },
+        { "url": "https://cdn.example.com/library/inception/fallback.mp4", "format": "mp4", "label": "Library · MP4", "resolutions": ["720p"] }
+      ]
+    },
+    {
+      "tmdbId": 1396,
+      "kind": "series",
+      "seasonNumber": 1,
+      "episodeNumber": 1,
+      "sources": [
+        { "url": "https://cdn.example.com/library/breaking-bad-s01e01/hls/master.m3u8", "format": "hls", "resolutions": ["1080p", "720p"] }
+      ]
+    }
+  ]
+}

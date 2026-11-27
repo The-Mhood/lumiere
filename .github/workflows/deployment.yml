@@ -1,0 +1,32 @@
+name: Production container validation
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/e423f162-lumiere', 'arena/22ae60e3-lumiere']
+    paths: ['Dockerfile', '.dockerignore', 'deploy/**', '.github/workflows/deployment.yml']
+permissions:
+  contents: read
+jobs:
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build production images
+        run: |
+          docker build --target web -t lumiere-web .
+          docker build --target worker -t lumiere-worker .
+      - name: Smoke test web image without sample fixtures
+        run: |
+          docker run -d --name web -e AUTH_SECRET="$(openssl rand -hex 48)" -p 3100:3100 lumiere-web
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:3100/api/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:3100/api/health
+          curl -fsS http://localhost:3100/platforms | grep -q Netflix
+          curl -fsS 'http://localhost:3100/api/search?q=Sintel' > search.json
+          node -e "const r=require('./search.json');if(r.data.items.length)throw Error('Unexpected demo title in production search')"
+      - name: Report container failures
+        if: failure()
+        run: docker logs web || true

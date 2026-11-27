@@ -3,11 +3,12 @@ import { db } from "@/db";
 import { aggregatorRuns, availability, credits, genres, people, providers, sources, titleGenres, titles } from "@/db/schema";
 import { cache } from "../cache";
 import { detectFormat, hostAllowed } from "../streaming";
+import { cinejoyAdapter } from "./cinejoy";
 import { internetArchiveAdapter } from "./internet-archive";
 import { tmdbAdapter } from "./tmdb";
 import type { AggregatedAvailability, AggregatedTitle, AggregatorAdapter } from "./types";
 
-export const ADAPTERS: AggregatorAdapter[] = [internetArchiveAdapter, tmdbAdapter];
+export const ADAPTERS: AggregatorAdapter[] = [internetArchiveAdapter, tmdbAdapter, cinejoyAdapter];
 
 export function getAdapter(key: string) {
   return ADAPTERS.find((a) => a.key === key) ?? null;
@@ -106,7 +107,7 @@ async function upsertTitle(
     posterUrl: t.posterUrl,
     backdropUrl: t.backdropUrl ?? t.posterUrl,
     license: t.license,
-    maxQuality: bestResolution(validSources.flatMap((s) => s.resolutions)),
+    maxQuality: validSources.length ? bestResolution(validSources.flatMap((s) => s.resolutions)) : "unverified",
     externalSource: t.externalSource,
     externalId: t.externalId,
   };
@@ -170,7 +171,7 @@ function bestResolution(res: string[]) {
   return h ? `${h}p` : "480p";
 }
 
-export async function runAggregation(adapterKey: string, limit = 40) {
+export async function runAggregation(adapterKey: string, limit = 40, catalogue?: AggregatedTitle[]) {
   const adapter = getAdapter(adapterKey);
   if (!adapter) throw new Error(`Unknown adapter ${adapterKey}`);
   const [run] = await db.insert(aggregatorRuns).values({ adapter: adapter.key }).returning();
@@ -182,9 +183,9 @@ export async function runAggregation(adapterKey: string, limit = 40) {
   let imported = 0, updated = 0, skipped = 0;
 
   try {
-    if (!adapter.configured()) throw new Error(`${adapter.name} is not configured (missing API credentials).`);
+    if (!catalogue && !adapter.configured()) throw new Error(`${adapter.name} is not configured (missing required integration settings).`);
     const providerMap = await ensureProviders(adapter);
-    const items = await adapter.fetchCatalogue({ limit, log });
+    const items = catalogue ?? await adapter.fetchCatalogue({ limit, log });
     const genreMap = await ensureGenres([...new Set(items.flatMap((i) => i.genres))]);
     for (const item of items) {
       try {

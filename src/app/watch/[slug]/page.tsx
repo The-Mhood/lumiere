@@ -1,11 +1,15 @@
+import { recordPlaybackLookup } from "@/lib/streaming/availability";
 import Link from "next/link";
+import { playbackIdentity } from "@/lib/streaming/identity";
+import { getResolver } from "@/lib/streaming/providers";
 import { notFound } from "next/navigation";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { watchProgress } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getTitleBySlug } from "@/lib/content";
-import { VideoPlayer } from "@/components/player/video-player";
+import { RemotePreviewPlayer } from "@/components/player/remote-preview-player";
+import { remotePreviewConfigured } from "@/lib/streaming/remote-preview";
 import { SeasonBrowser } from "@/components/season-browser";
 import { Rail, TitleCard } from "@/components/title-card";
 
@@ -29,10 +33,14 @@ export default async function WatchPage({
 
   const allEpisodes = title.seasons.flatMap((s) => s.episodes.map((e) => ({ ...e, seasonNumber: s.number })));
   let episode = allEpisodes.find((e) => e.id === Number(sp.ep));
+  if (title.kind === "series" && sp.ep && !episode) notFound();
   if (title.kind === "series" && !episode) episode = allEpisodes[0];
   if (title.kind === "series" && !episode) notFound();
 
-  const sources = episode ? episode.sources : title.sources;
+  const remotePreview = remotePreviewConfigured() && title.kind === 'movie' && Boolean(playbackIdentity(title).tmdbId);
+  const resolution = remotePreview ? { sources: [], reports: [] } : await (await getResolver()).resolve(playbackIdentity(title, episode?.id));
+  const sources = resolution.sources;
+  if (!remotePreview) await recordPlaybackLookup(title.id, sources.length > 0, episode?.id);
   const idx = episode ? allEpisodes.findIndex((e) => e.id === episode!.id) : -1;
   const prev = idx > 0 ? allEpisodes[idx - 1] : undefined;
   const next = idx >= 0 && idx < allEpisodes.length - 1 ? allEpisodes[idx + 1] : undefined;
@@ -60,7 +68,8 @@ export default async function WatchPage({
     <div className="-mt-16 pt-16">
       <div className="bg-black">
         <div className="mx-auto max-w-[1400px]">
-          <VideoPlayer
+          <RemotePreviewPlayer
+            slug={remotePreview ? title.slug : undefined}
             key={`${title.id}-${episode?.id ?? "m"}`}
             titleId={title.id}
             episodeId={episode?.id}
@@ -81,6 +90,13 @@ export default async function WatchPage({
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {!remotePreview && !sources.length && <a href={`/watch/${title.slug}${episode ? `?ep=${episode.id}` : ''}`} className="mb-4 inline-flex rounded-full border border-white/15 px-5 py-2 text-sm hover:bg-white/5">Retry source search</a>}
+        <details className="mb-6 rounded-xl border border-white/10 p-4 text-sm text-mist">
+          <summary className="cursor-pointer">{remotePreview ? "Remote preview · source lookup happens in the player" : `Source availability · ${sources.length} playable source${sources.length === 1 ? "" : "s"}`}</summary>
+          <ul className="mt-3 space-y-1">
+            {resolution.reports.map((r) => <li key={r.provider}>{r.provider}: {r.status}{r.error ? ` — ${r.error}` : ""}</li>)}
+          </ul>
+        </details>
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <Link href={`/title/${title.slug}`} className="font-display text-3xl font-bold hover:text-ember">

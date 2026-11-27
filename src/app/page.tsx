@@ -13,6 +13,7 @@ export default async function HomePage() {
   return (
     <div className="-mt-16">
       <HeroCarousel items={rails.featured} />
+      {rails.discoveryNotice && <p role="status" className="mx-auto max-w-7xl px-4 py-3 text-sm text-gold">{rails.discoveryNotice}</p>}
 
       {cw.length > 0 && (
         <Rail title="Continue watching" href="/library" subtitle="Pick up right where you left off">
@@ -48,6 +49,23 @@ export default async function HomePage() {
         </Rail>
       )}
 
+      {rails.watchProviders.length > 0 && (
+        <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-6">
+          <h2 className="font-display text-xl font-semibold sm:text-2xl">Platforms</h2>
+          <p className="mt-1 text-sm text-mist">Discover provider catalogues. Playback sources are resolved separately when you watch.</p>
+          <div className="rail mt-4 gap-4">
+            {rails.watchProviders.map(provider => (
+              <Link key={provider.id} href={`/platforms/${provider.id}`} className="flex w-28 shrink-0 flex-col items-center gap-2 rounded-xl bg-white/5 p-4 text-center text-xs hover:bg-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {provider.logo && <img src={provider.logo} alt="" className="h-14 w-14 rounded-xl object-cover" />}
+                <span>{provider.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!rails.trending.length && <section className="mx-auto max-w-7xl px-4 py-16"><h1 className="text-3xl font-bold">Your movie catalogue</h1><p className="mt-3 text-mist">No recently checked playback sources are available yet. Unverified imports and demo videos are not displayed.</p><Link href="/platforms" className="mt-5 inline-flex rounded-full bg-ember px-6 py-3 text-ink">Browse platforms</Link></section>}
       <Rail title="Trending now" href="/movies?sort=popular" subtitle="What everyone is watching this week">
         {rails.trending.map((t, i) => (
           <div key={t.id} className="relative flex items-end gap-1">
@@ -121,7 +139,7 @@ export default async function HomePage() {
         <div className="grid gap-4 rounded-3xl border border-white/5 bg-gradient-to-br from-ink-700 to-ink-800 p-8 md:grid-cols-3">
           {[
             ["Up to 4K UHD", "Adaptive HLS & DASH streaming that scales to your connection, up to 2160p."],
-            ["Multiple sources", "Every title has several authorized servers with automatic health-aware fallback."],
+            ["Multiple sources", "Available playback sources use automatic health-aware fallback. Catalogue-only listings are marked unavailable."],
             ["Zero ads", "No pop-ups, no redirects, no fake buttons. Just the film."],
           ].map(([h, p]) => (
             <div key={h}>

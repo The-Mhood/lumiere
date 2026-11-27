@@ -6,9 +6,13 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 
 const COOKIE = "lumiere_session";
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "dev-only-secret-change-me-in-production-please",
-);
+function signingKey() {
+  const secret = process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === "production" && (!secret || secret.length < 32 || secret.startsWith("dev-only"))) {
+    throw new Error("Set AUTH_SECRET to at least 32 random characters before enabling production accounts.");
+  }
+  return new TextEncoder().encode(secret ?? "dev-only-secret-change-me-in-production-please");
+}
 
 export async function hashPassword(pw: string) {
   return bcrypt.hash(pw, 10);
@@ -23,12 +27,14 @@ export async function createSession(userId: number) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(secret);
+    .sign(signingKey());
   const store = await cookies();
   store.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Web production is secure by default. The desktop loopback server
+    // explicitly sets COOKIE_SECURE=false (no external network exposure).
+    secure: process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false"),
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
@@ -44,7 +50,7 @@ export async function getSessionUserId(): Promise<number | null> {
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, signingKey());
     return payload.sub ? Number(payload.sub) : null;
   } catch {
     return null;

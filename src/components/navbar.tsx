@@ -12,7 +12,8 @@ const LINKS = [
   { href: "/series", label: "Series" },
   { href: "/movies?sort=rating", label: "Top Rated" },
   { href: "/movies?platform=internet-archive", label: "Classics" },
-  { href: "/aggregators", label: "Platforms" },
+  { href: "/platforms", label: "Platforms" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function Navbar({ user }: { user: NavUser }) {
@@ -32,12 +33,16 @@ export function Navbar({ user }: { user: NavUser }) {
   }, []);
 
   useEffect(() => {
+    // Close transient UI after route navigation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpen(false);
     setSuggest([]);
   }, [pathname]);
 
   useEffect(() => {
     if (q.trim().length < 2) {
+      // Reset the external search result when the query becomes empty.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuggest([]);
       return;
     }
@@ -45,7 +50,7 @@ export function Navbar({ user }: { user: NavUser }) {
     const t = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(q)}&limit=6`, { signal: ctrl.signal })
         .then((r) => r.json())
-        .then((d) => setSuggest(d.items ?? []))
+        .then((d) => setSuggest((d.data?.items ?? []).slice(0, 6)))
         .catch(() => {});
     }, 200);
     return () => {
@@ -83,7 +88,7 @@ export function Navbar({ user }: { user: NavUser }) {
           Lumière
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-1 xl:flex" aria-label="Primary">
           {LINKS.map((l) => (
             <Link
               key={l.href}
@@ -140,7 +145,7 @@ export function Navbar({ user }: { user: NavUser }) {
           )}
         </form>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 xl:flex">
           {user ? (
             <>
               <Link href="/library" className="rounded-full px-3 py-1.5 text-sm text-mist hover:text-snow">
@@ -165,7 +170,7 @@ export function Navbar({ user }: { user: NavUser }) {
         </div>
 
         <button
-          className="ml-auto rounded-lg p-2 hover:bg-white/5 md:hidden"
+          className="ml-auto rounded-lg p-2 hover:bg-white/5 xl:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label="Toggle menu"
@@ -177,7 +182,7 @@ export function Navbar({ user }: { user: NavUser }) {
       </div>
 
       {open && (
-        <div className="border-t border-white/5 bg-ink-800 px-4 py-4 md:hidden">
+        <div className="border-t border-white/5 bg-ink-800 px-4 py-4 xl:hidden">
           <form
             role="search"
             onSubmit={(e) => {
