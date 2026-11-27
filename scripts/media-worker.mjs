@@ -15,6 +15,7 @@ const browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM
 const maxConcurrent = Math.min(4, Math.max(1, Number(process.env.LUMIERE_SCRAPER_CONCURRENCY) || 2));
 let active = 0;
 let streams = 0;
+let browserContexts = 0;
 const gateway = new MediaGateway();
 function authorized(req) {
   const actual = Buffer.from(req.headers.authorization || '');
@@ -34,7 +35,7 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === 'GET' && req.url === '/health') return send(200, { status: 'ok', sites: sites.map(s => s.id), active });
   if (req.method !== 'POST' || req.url !== '/resolve') return send(404, { error: 'Not found' });
-  if (active >= maxConcurrent) return send(503, { error: 'Scraper capacity reached; retry later' });
+  if (active >= maxConcurrent || browserContexts >= 4) return send(503, { error: 'Scraper capacity reached; retry later' });
   active++;
   try {
     let raw = '';
@@ -45,9 +46,9 @@ const server = createServer(async (req, res) => {
     const input = validateRequest(JSON.parse(raw));
     const results = await Promise.all(sites.map(async site => {
       try {
-        const result = await scrapeMedia(browser, site, input);
+        const result = await scrapeMedia(browser, site, input, { retainContext: true, onContext: context => { browserContexts++; context.once('close', () => { browserContexts--; }); } });
         console.log(JSON.stringify({ provider: site.id, sources: result.sources.length, reason: result.reason, observedHosts: result.observedHosts }));
-        return { provider: site.id, ...result, sources: result.sources.map(source => ({ ...source, ...(source.format !== 'dash' ? { playbackPath: gateway.register(source.url, site.mediaHosts, source.format) } : {}) })) };
+        return { provider: site.id, ...result, sources: result.sources.map(source => ({ ...source, ...(source.format !== 'dash' ? { playbackPath: gateway.register(source.url, site.mediaHosts, source.format, result.fetchMedia) } : {}) })) };
       } catch { return { provider: site.id, sources: [], reason: 'Scraper failed' }; }
     }));
     send(200, { identity: { tmdbId: input.tmdbId, kind: input.kind, seasonNumber: input.seasonNumber, episodeNumber: input.episodeNumber }, results });

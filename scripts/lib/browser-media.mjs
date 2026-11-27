@@ -35,7 +35,7 @@ export function validateRequest(input) {
  * No cookies/headers/keys are extracted or replayed, no site JS is decrypted,
  * no login/captcha/DRM is circumvented. Every scrape uses a fresh context.
  * Sites and playback-host allowlists are operator configuration, not user URLs. */
-export async function scrapeMedia(browser, site, input, { timeoutMs = 40000 } = {}) {
+export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, retainContext = false, onContext } = {}) {
   validateRequest(input);
   const template = input.kind === 'movie' ? site.movieUrl : site.episodeUrl;
   if (!template) return { sources: [], reason: 'This site does not support the requested media type' };
@@ -43,6 +43,8 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000 } = 
   const url = new URL(pageUrl);
   if (url.protocol !== 'https:' || !hostMatches(url.hostname, site.pageHosts)) throw new Error('Scraper page origin is not allowed');
   const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: 'block' });
+  onContext?.(context);
+  let retained = false;
   const found = new Map();
   const observedHosts = new Set();
   const dns = new Map();
@@ -98,12 +100,39 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000 } = 
     let visitError;
     await Promise.race([visit.catch(error => { visitError = error; }), deadline]);
     if (!found.size && !visitError) await Promise.race([observed, deadline]);
-    if (found.size) return { sources: [...found.values()] };
+    if (found.size) {
+      if (!retainContext) return { sources: [...found.values()] };
+      retained = true;
+      page.removeAllListeners('response');
+      await page.locator('video').evaluateAll(nodes => nodes.forEach(v => v.pause())).catch(() => {});
+      let idleTimer;
+      const touch = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { void context.close(); }, 15 * 60000); idleTimer.unref(); };
+      touch();
+      context.once('close', () => clearTimeout(idleTimer));
+      // Fetch within the normal public page origin. No headers/cookies are
+      // extracted or fabricated, and browser CORS enforcement remains enabled.
+      const fetchMedia = async (url, range) => {
+        touch();
+        return page.evaluate(async ({ url, range }) => {
+          const response = await fetch(url, { credentials: 'omit', signal: AbortSignal.timeout(25000), ...(range ? { headers: { Range: range } } : {}) });
+          if (!response.ok) return { status: response.status, headers: {}, body: '' };
+          const reader = response.body.getReader();
+          const chunks = []; let size = 0;
+          for (;;) { const part = await reader.read(); if (part.done) break; size += part.value.length; if (size > 16000000) { await reader.cancel(); throw new Error('Browser media chunk too large'); } chunks.push(part.value); }
+          const parts = [];
+          for (const chunk of chunks) for (let i = 0; i < chunk.length; i += 32768) parts.push(String.fromCharCode(...chunk.subarray(i, i + 32768)));
+          const headers = {};
+          for (const name of ['content-type', 'content-range', 'accept-ranges', 'content-length']) { const value = response.headers.get(name); if (value) headers[name] = value; }
+          return { status: response.status, headers, body: btoa(parts.join('')) };
+        }, { url, range });
+      };
+      return { sources: [...found.values()], fetchMedia };
+    }
     return { sources: [], reason: visitError ? 'Public player could not be opened' : 'Public player produced no allowed, directly playable media before its deadline', observedHosts: [...observedHosts] };
   } finally {
     clearTimeout(timer);
     closed = true;
-    await context.close().catch(() => {});
+    if (!retained) await context.close().catch(() => {});
     // Closing the context rejects any outstanding manifest body reads.
     await Promise.allSettled([...tasks]);
   }
