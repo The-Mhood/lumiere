@@ -44,6 +44,7 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000 } = 
   if (url.protocol !== 'https:' || !hostMatches(url.hostname, site.pageHosts)) throw new Error('Scraper page origin is not allowed');
   const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: 'block' });
   const found = new Map();
+  const observedHosts = new Set();
   const dns = new Map();
   let finish;
   const observed = new Promise(resolve => { finish = resolve; });
@@ -70,6 +71,7 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000 } = 
       const task = (async () => {
         if (closed || !response.ok()) return;
         const target = new URL(response.url());
+        if (mediaFormat(target.href, response.headers()['content-type'])) observedHosts.add(target.hostname);
         if (!hostMatches(target.hostname, site.mediaHosts) || !await safeHost(target.hostname)) return;
         const format = mediaFormat(target.href, response.headers()['content-type']);
         if (!format) return;
@@ -97,7 +99,7 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000 } = 
     await Promise.race([visit.catch(error => { visitError = error; }), deadline]);
     if (!found.size && !visitError) await Promise.race([observed, deadline]);
     if (found.size) return { sources: [...found.values()] };
-    return { sources: [], reason: visitError ? 'Public player could not be opened' : 'Public player produced no allowed, directly playable media before its deadline' };
+    return { sources: [], reason: visitError ? 'Public player could not be opened' : 'Public player produced no allowed, directly playable media before its deadline', observedHosts: [...observedHosts] };
   } finally {
     clearTimeout(timer);
     closed = true;

@@ -36,7 +36,7 @@ const server = createServer(async (req, res) => {
     const results = await Promise.all(sites.map(async site => {
       try {
         const result = await scrapeMedia(browser, site, input);
-        console.log(JSON.stringify({ provider: site.id, sources: result.sources.length, reason: result.reason }));
+        console.log(JSON.stringify({ provider: site.id, sources: result.sources.length, reason: result.reason, observedHosts: result.observedHosts }));
         return { provider: site.id, ...result };
       } catch { return { provider: site.id, sources: [], reason: 'Scraper failed' }; }
     }));

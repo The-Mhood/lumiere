@@ -26,8 +26,10 @@ try {
     worker.once('exit', () => { clearTimeout(timer); reject(new Error(`Media worker exited: ${output.slice(0, 1000)}`)); });
   });
   const provider = new BrowserScraperProvider('http://127.0.0.1:3200', token, [{ id: 'cinejoy', name: 'Cinejoy', mediaHosts: ['lightspeed.st', '*.lightspeed.st'] }]);
-  const records = await provider.resolve({ slug: 'inception-2010', name: 'Inception', year: 2010, kind: 'movie', tmdbId: 27205 }, AbortSignal.timeout(50000));
-  const sources = rankSources(records);
+  let sources = [] as ReturnType<typeof rankSources>;
+  for (let attempt = 0; attempt < 2 && !sources.length; attempt++) {
+    sources = rankSources(await provider.resolve({ slug: 'inception-2010', name: 'Inception', year: 2010, kind: 'movie', tmdbId: 27205 }, AbortSignal.timeout(50000)));
+  }
   if (!sources.length) throw new Error('Live scraper returned no directly playable sources');
   await new Promise<void>(resolve => server.listen(3300, '0.0.0.0', resolve));
   browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
