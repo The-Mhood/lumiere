@@ -27,7 +27,7 @@ const server = createServer(async (req, res) => {
     else Readable.fromWeb(response.body as import('node:stream/web').ReadableStream).on('error', () => res.destroy()).pipe(res);
   } else if (req.url === '/shaka.js') {
     res.setHeader('Content-Type', 'application/javascript');
-    res.end(await readFile('node_modules/shaka-player/dist/shaka-player.compiled.js'));
+    res.end(await readFile('node_modules/shaka-player/dist/shaka-player.compiled.debug.js'));
   } else { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><video controls muted autoplay></video><script src="/shaka.js"></script>'); }
 });
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -51,6 +51,7 @@ try {
   page.on('response', r => { if (r.status() >= 400) errors.push(`HTTP ${r.status()} from ${new URL(r.url()).hostname}`); });
   page.on('requestfailed', r => errors.push(`${new URL(r.url()).hostname}: ${r.failure()?.errorText}`));
   page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (['warning', 'error'].includes(message.type())) errors.push(message.text().replace(/https?:\/\/\S+/g, '[URL omitted]').slice(0, 800)); });
   const playbackError = await page.evaluate(async url => {
     try {
     const shaka = (window as unknown as { shaka: { polyfill: { installAll(): void }; Player: new () => { attach(video: HTMLVideoElement): Promise<void>; load(url: string): Promise<void> } } }).shaka;
@@ -62,11 +63,12 @@ try {
     await video.play();
     return null;
     } catch (error) {
+      const support = { h264: MediaSource.isTypeSupported('video/mp4; codecs="avc1.4D001E"'), aac: MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"') };
       const e = error as { code?: number; category?: number; severity?: number; message?: string; data?: unknown[] };
-      return { code: e.code, category: e.category, severity: e.severity, message: e.message, data: e.data?.map(value => typeof value === 'string' ? value.replace(/https?:\/\/\S+/g, '[URL omitted]') : typeof value === 'number' ? value : '[detail omitted]') };
+      return { support, code: e.code, category: e.category, severity: e.severity, message: e.message, data: e.data?.map(value => typeof value === 'string' ? value.replace(/https?:\/\/\S+/g, '[URL omitted]') : typeof value === 'number' ? value : '[detail omitted]') };
     }
   }, sources[0].url);
-  if (playbackError) throw new Error(`Independent player failed: ${JSON.stringify(playbackError)}; network: ${JSON.stringify(errors)}`);
+  if (playbackError) throw new Error(`Independent player failed: ${JSON.stringify(playbackError)}; network: ${JSON.stringify(errors.slice(-6))}`);
   await page.waitForFunction(() => document.querySelector('video')!.currentTime > 2, { timeout: 30000 });
   const media = await page.locator('video').evaluate((v: HTMLVideoElement) => ({ duration: v.duration, time: v.currentTime, readyState: v.readyState }));
   if (media.duration < 8000 || media.duration > 10000) throw new Error('Resolved media does not have the expected full-film duration');
