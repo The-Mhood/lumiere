@@ -2,6 +2,27 @@
 
 Next.js / React streaming catalogue with PostgreSQL + Drizzle, a Shaka HLS/DASH/MP4 player, and an Electron desktop shell. The existing application remains the foundation.
 
+## On-demand discovery and playback
+
+The application now separates **live TMDB discovery** from **on-click media resolution**.
+With your server-side TMDB configuration, home shows trending/popular/current/top-rated
+movies, genre rows and provider categories; search queries TMDB rather than requiring
+imports. Only a clicked movie is persisted for history/watchlists.
+
+The media resolver passes the clicked TMDB identity to an authenticated browser worker.
+The supplied Cinejoy movie adapter observes normal public playback and relays verified
+HLS media through same-origin, opaque grants. No placeholder film is substituted.
+Additional sites need actual tested adapters and host allowlists; this is not a universal
+"all sites/all films" scraper. See [worker setup and acceptance](scrapers/README.md).
+
+Live on-demand resolution, independent Shaka playback and seeking passed for
+**Inception, Interstellar and The Dark Knight** in
+[run 45977527590](https://github.com/The-Mhood/lumiere/actions/runs/45977527590).
+This does not certify all titles, episode support or the new worker in native installers.
+The current sandbox lacks TMDB credentials and cannot directly reach Cinejoy; the
+preview does not have this external worker deployed. Catalogue listings there are
+not proof of active on-demand playback. See `DELIVERY.md` for current verification.
+
 ## Run locally
 
 ```sh

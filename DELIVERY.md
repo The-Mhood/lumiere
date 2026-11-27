@@ -1,5 +1,45 @@
 # Lumière implementation delivery — 2026-11-26
 
+## Expanded on-demand implementation checkpoint
+
+This supersedes the earlier statement that no Cinejoy playback adapter exists.
+The **implementation** now includes live TMDB movie discovery/search, provider and
+genre categories, lazy persistence of clicked titles, external-identity propagation,
+a multi-site browser-scraper worker interface, and a supplied Cinejoy movie adapter.
+An opaque same-origin relay handles HLS manifests, relative media/key URLs, range
+requests, origin-bound fetches and verified segment container/MIME normalization.
+Worker credentials and cookies are never sent to the application browser.
+
+**Live acceptance: Inception (2010), TMDB 27205 — PASS**, resolved without a catalogue
+import and played by Shaka in a separate browser context through the actual Next relay
+handler: https://github.com/The-Mhood/lumiere/actions/runs/45977225332 (application
+checkpoint `88a0883`). Report: duration 8888.296 seconds, currentTime 2.024 seconds,
+readyState 4. Earlier direct-URL/CORS/container failures are not passing results;
+this run passed after their fixes.
+
+**Three-title live playback and seeking: PASS** at `60661d3`:
+https://github.com/The-Mhood/lumiere/actions/runs/45977527590.
+
+| Movie | TMDB ID | Full-film duration reported | Playback / seek to 2 min |
+| --- | --- | --- | --- |
+| Inception (2010) | 27205 | 8888.296 s | PASS / PASS |
+| Interstellar (2014) | 157336 | 10144.217 s | PASS / PASS |
+| The Dark Knight (2008) | 155 | 9132.228 s | PASS / PASS |
+
+All were resolved live without catalogue imports. This tests playback startup,
+full-film duration and seeking, not uninterrupted end-to-end viewing of each film.
+Local unit suite: **49 tests**, type checking, lint and production standalone build pass.
+
+**Not completed:** all websites/all movies coverage; the supplied live adapter is
+Cinejoy movies only. Its TV episode URL is intentionally not invented. The worker
+is a separate Chromium service, not yet packaged into the native installers. The
+preview sandbox has no configured TMDB credential and its outbound network cannot
+reach Cinejoy directly, so the preview is not represented as an active universal
+streaming deployment. See `scrapers/README.md` for deployment configuration.
+
+The native nine-film results below are an earlier, separately verified checkpoint,
+not certification of this newly added worker path across OS installations.
+
 ## Cross-platform movie acceptance: PASS
 
 Verified application commit: `cb369255a88b7ab6597c1c4eae436c73018958c6` on `arena/e423f162-lumiere`.
