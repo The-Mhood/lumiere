@@ -29,6 +29,7 @@ jobs:
         run: |
           node scripts/report-preview-step.mjs node scripts/build-desktop.mjs
           node scripts/report-preview-step.mjs node scripts/prepare-desktop.mjs
+          mkdir -p .cache/preview-host/data
           LUMIERE_DATA_DIR="$GITHUB_WORKSPACE/.cache/preview-host/data" node scripts/report-preview-step.mjs npx tsx scripts/seed-preview-host.ts
       - name: Install pinned HTTPS development tunnel
         run: |
