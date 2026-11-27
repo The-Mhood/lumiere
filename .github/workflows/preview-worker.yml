@@ -27,9 +27,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Build full application and initialize public movie metadata
         run: |
-          node scripts/build-desktop.mjs
-          node scripts/prepare-desktop.mjs
-          LUMIERE_DATA_DIR="$GITHUB_WORKSPACE/.cache/preview-host/data" npx tsx scripts/seed-preview-host.ts
+          node scripts/report-preview-step.mjs node scripts/build-desktop.mjs
+          node scripts/report-preview-step.mjs node scripts/prepare-desktop.mjs
+          LUMIERE_DATA_DIR="$GITHUB_WORKSPACE/.cache/preview-host/data" node scripts/report-preview-step.mjs npx tsx scripts/seed-preview-host.ts
       - name: Install pinned HTTPS development tunnel
         run: |
           mkdir -p .cache
