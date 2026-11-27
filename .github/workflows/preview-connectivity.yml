@@ -1,0 +1,24 @@
+name: Preview connectivity probe
+on:
+  workflow_dispatch:
+  push:
+    branches: ['arena/e423f162-lumiere']
+    paths: ['.github/workflows/preview-connectivity.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check public app and worker connectivity
+        run: |
+          node --input-type=module - <<'JS'
+          for (const url of ['https://3100-i6rtgc957ptte2942soku.e2b.app/api/preview-status', 'https://chocolate-creativity-visited-lyrics.trycloudflare.com/public-health']) {
+            try {
+              const response = await fetch(url, {signal: AbortSignal.timeout(15000)});
+              const text = await response.text();
+              console.log('::notice title=Preview connectivity::'+JSON.stringify({url,status:response.status,body:text.slice(0,1500)}).replaceAll('%','%25').replaceAll('\n','%0A'));
+            } catch(error) { console.log('::error title=Preview connectivity::'+JSON.stringify({url,error:error.message,cause:error.cause?.code})); }
+          }
+          JS
