@@ -19,7 +19,7 @@ export class MediaGateway {
     const id = createHmac('sha256', this.secret).update(JSON.stringify([url, hosts])).digest('base64url').slice(0, 32);
     if (!this.grants.has(id) && this.grants.size >= 50000) throw new Error('Media gateway capacity reached');
     this.grants.set(id, { url, hosts, format, transport, expires: now + 6 * 3600000 });
-    const extension = ({ hls: 'm3u8', dash: 'mpd', mp4: 'mp4' })[format] || 'bin';
+    const extension = ({ hls: 'm3u8', dash: 'mpd', mp4: 'mp4' })[format] || parsed.pathname.match(/\.(ts|m4s|aac|mp3|vtt|key|webm)$/i)?.[1]?.toLowerCase() || 'bin';
     return `/stream/${id}/media.${extension}`;
   }
   rewriteHls(text, base, hosts, transport) {
@@ -46,7 +46,7 @@ export class MediaGateway {
     throw new Error('Too many media redirects');
   }
   async serve(req, res) {
-    const match = req.url?.match(/^\/stream\/([A-Za-z0-9_-]{32})\/media\.(?:m3u8|mp4|mpd|bin)$/);
+    const match = req.url?.match(/^\/stream\/([A-Za-z0-9_-]{32})\/media\.(?:m3u8|mp4|mpd|bin|ts|m4s|aac|mp3|vtt|key|webm)$/);
     const grant = match && this.grants.get(match[1]);
     if (!grant || grant.expires < Date.now()) { res.writeHead(404); res.end(); return; }
     const controller = new AbortController();

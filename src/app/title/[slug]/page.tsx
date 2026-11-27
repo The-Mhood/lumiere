@@ -23,7 +23,7 @@ export default async function TitlePage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const [record, user] = await Promise.all([getTitleBySlug(slug), getCurrentUser()]);
   if (!record) notFound();
-  const canScrape = Boolean(playbackIdentity(record).tmdbId && process.env.LUMIERE_MEDIA_WORKER_URL && process.env.LUMIERE_MEDIA_WORKER_TOKEN && configuredScraperSites().length);
+  const canScrape = Boolean(record.kind === 'movie' && playbackIdentity(record).tmdbId && process.env.LUMIERE_MEDIA_WORKER_URL && process.env.LUMIERE_MEDIA_WORKER_TOKEN && configuredScraperSites().length);
   // Scrape only when Watch is requested, not every time details render.
   const title = canScrape ? record : await withResolvedSources(record);
 

@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
  * accepts a target URL, forwards browser cookies, or exposes the worker token. */
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const path = (await params).path.join('/');
-  if (!/^[A-Za-z0-9_-]{32}\/media\.(?:m3u8|mp4|mpd|bin)$/.test(path)) return new Response(null, { status: 404 });
+  if (!/^[A-Za-z0-9_-]{32}\/media\.(?:m3u8|mp4|mpd|bin|ts|m4s|aac|mp3|vtt|key|webm)$/.test(path)) return new Response(null, { status: 404 });
   const endpoint = process.env.LUMIERE_MEDIA_WORKER_URL;
   const token = process.env.LUMIERE_MEDIA_WORKER_TOKEN;
   if (!endpoint || !token) return new Response(null, { status: 503 });

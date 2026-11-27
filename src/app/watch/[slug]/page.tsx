@@ -84,6 +84,7 @@ export default async function WatchPage({
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {!sources.length && <a href={`/watch/${title.slug}${episode ? `?ep=${episode.id}` : ''}`} className="mb-4 inline-flex rounded-full border border-white/15 px-5 py-2 text-sm hover:bg-white/5">Retry source search</a>}
         <details className="mb-6 rounded-xl border border-white/10 p-4 text-sm text-mist">
           <summary className="cursor-pointer">Source availability · {sources.length} playable source{sources.length === 1 ? "" : "s"}</summary>
           <ul className="mt-3 space-y-1">

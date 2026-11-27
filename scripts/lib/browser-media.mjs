@@ -36,6 +36,7 @@ export function validateRequest(input) {
  * no login/captcha/DRM is circumvented. Every scrape uses a fresh context.
  * Sites and playback-host allowlists are operator configuration, not user URLs. */
 export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, retainContext = false, onContext } = {}) {
+  const started = Date.now();
   validateRequest(input);
   const template = input.kind === 'movie' ? site.movieUrl : site.episodeUrl;
   if (!template) return { sources: [], reason: 'This site does not support the requested media type' };
@@ -63,6 +64,7 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
       try {
         const target = new URL(route.request().url());
         if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password || !await safeHost(target.hostname)) return route.abort();
+        if (retained && route.request().resourceType() === 'fetch' && !hostMatches(target.hostname, site.mediaHosts)) return route.abort();
         if (['font', 'image'].includes(route.request().resourceType())) return route.abort();
         return route.continue();
       } catch { await route.abort().catch(() => {}); }
@@ -81,11 +83,13 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
         // masquerading as media and require actual manifest/video MIME types.
         const mime = response.headers()['content-type'] || '';
         if (/text\/html|application\/json/i.test(mime)) return;
+        let master = false;
         if (format !== 'mp4') {
           const body = await response.text();
+          master = format === 'hls' && body.includes('#EXT-X-STREAM-INF');
           if (format === 'hls' ? !body.trimStart().startsWith('#EXTM3U') : !/<(?:\w+:)?MPD\b/.test(body)) return;
         }
-        found.set(target.href, { url: target.href, format, label: `${site.name} · ${format.toUpperCase()}` });
+        found.set(target.href, { url: target.href, format, master, label: `${site.name} · ${format.toUpperCase()}` });
         finish();
       })().catch(() => {});
       tasks.add(task);
@@ -101,7 +105,12 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
     await Promise.race([visit.catch(error => { visitError = error; }), deadline]);
     if (!found.size && !visitError) await Promise.race([observed, deadline]);
     if (found.size) {
-      if (!retainContext) return { sources: [...found.values()] };
+      try {
+        await page.waitForFunction(() => [...document.querySelectorAll('video')].some(v => v.readyState >= 3 && v.currentTime > 0.5), { timeout: Math.max(1, timeoutMs - (Date.now() - started)) });
+      } catch { return { sources: [], reason: 'Public player did not start decoding media before its deadline', observedHosts: [...observedHosts] }; }
+      const masters = [...found.values()].filter(s => s.master).reverse();
+      const playable = masters.length ? masters : [...found.values()].reverse();
+      if (!retainContext) return { sources: playable };
       retained = true;
       page.removeAllListeners('response');
       await page.locator('video').evaluateAll(nodes => nodes.forEach(v => v.pause())).catch(() => {});
@@ -122,11 +131,11 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
           const parts = [];
           for (const chunk of chunks) for (let i = 0; i < chunk.length; i += 32768) parts.push(String.fromCharCode(...chunk.subarray(i, i + 32768)));
           const headers = {};
-          for (const name of ['content-type', 'content-range', 'accept-ranges', 'content-length']) { const value = response.headers.get(name); if (value) headers[name] = value; }
+          for (const name of ['content-type', 'content-range', 'accept-ranges']) { const value = response.headers.get(name); if (value) headers[name] = value; }
           return { status: response.status, headers, body: btoa(parts.join('')) };
         }, { url, range });
       };
-      return { sources: [...found.values()], fetchMedia };
+      return { sources: playable, fetchMedia };
     }
     return { sources: [], reason: visitError ? 'Public player could not be opened' : 'Public player produced no allowed, directly playable media before its deadline', observedHosts: [...observedHosts] };
   } finally {
