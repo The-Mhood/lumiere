@@ -1,3 +1,14 @@
+## Current connected movie preview
+
+The full application and its private media worker now run together in a temporary
+GitHub-runner development deployment. The actual app passed **The Godfather
+(1972) playback and seek verification** in [run 46015195289](https://github.com/The-Mhood/lumiere/actions/runs/46015195289).
+Port 3100 can display it using the ignored `LUMIERE_REMOTE_APP_URL` environment
+setting; its banner includes a standalone link. Deployments expire after three
+hours and account/history data is temporary. See the current section at the top
+of `DELIVERY.md` for provisioning, verification, and limitations. This is one
+movie-site adapter, not universal playback or permanent production hosting.
+
 # Lumière
 
 Next.js / React streaming catalogue with PostgreSQL + Drizzle, a Shaka HLS/DASH/MP4 player, and an Electron desktop shell. The existing application remains the foundation.

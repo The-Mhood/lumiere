@@ -1,3 +1,39 @@
+## Connected full-app movie preview — current verification
+
+At commit `4ebf43e`, workflow [46015195289](https://github.com/The-Mhood/lumiere/actions/runs/46015195289)
+built and hosted the actual Next application beside its private browser media
+worker. A public HTTPS development tunnel serves both the application and the
+same-origin opaque media relay. The automated browser opened the real app's
+`/watch/the-godfather-1972` page, decoded video, played beyond two seconds,
+required a duration over 10,000 seconds, sought to 120 seconds, and continued
+beyond 121 seconds. GitHub deployment **8112093990** records this as
+“Verified: actual app movie playback and seeking passed”. This is separate from
+the earlier independent three-film scraper/relay test.
+
+The workspace port-3100 preview embeds the hosted app using the local, ignored
+`LUMIERE_REMOTE_APP_URL` setting. A standalone link is provided because browser
+privacy settings may restrict login/storage inside cross-site frames. The app
+is hosted remotely because this sandbox cannot reach the upstream site; the
+sandbox preview itself requires an Arena traffic token and cannot be opened
+by the external verifier. No traffic-token bypass is used.
+
+**Temporary only:** this runner deployment expires after three hours (its
+initial expiry is 2026-11-27 17:22:44 UTC), or sooner on cancellation/failure.
+Its accounts/history are ephemeral; production hosting is not provisioned.
+The latest endpoint/state is published through GitHub's `lumiere-preview`
+deployments API. Dispatch `preview-worker.yml` to start a fresh development
+session, then update the ignored local `LUMIERE_REMOTE_APP_URL` and restart the
+workspace server. No owner-managed VPS or additional hosting account was used.
+
+Coverage remains one real movie-site adapter, **not** all sites or every TMDB
+title. TMDB credentials are still absent. TV playback, universal title coverage,
+permanent hosting, full-film viewing, and native certification of this remote
+path remain outstanding. Older catalogue-only and nine-demo notes below are
+historical and must not override this more recent, specifically scoped result.
+Local typecheck, lint, 52 tests, and standalone production build passed.
+
+---
+
 # Lumière implementation delivery — 2026-11-26
 
 ## Expanded on-demand implementation checkpoint
