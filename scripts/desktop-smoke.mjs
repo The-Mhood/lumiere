@@ -61,7 +61,7 @@ async function launch() {
   const port = await freePort();
   output = '';
   child = spawn(exe, [`--remote-debugging-port=${port}`, '--enable-logging=stderr'], {
-    env: { ...process.env, LUMIERE_USER_DATA_DIR: profile, LUMIERE_SMOKE_TEST: '1' }, stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, LUMIERE_USER_DATA_DIR: profile, LUMIERE_SMOKE_TEST: '1', LUMIERE_SEED_DEMOS: '1' }, stdio: ['pipe', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => { output += d; });
   child.stderr.on('data', (d) => { output += d; });
