@@ -59,7 +59,7 @@ export function SeasonBrowser({ slug, seasons, currentEpisodeId }: { slug: strin
                   <p className="mt-1 text-xs text-mist/70">
                     {e.runtimeMinutes ? `${e.runtimeMinutes} min` : ""}
                     {e.airDate ? ` · ${e.airDate}` : ""}
-                    {e.sources.length ? ` · ${e.sources.length} server${e.sources.length > 1 ? "s" : ""}` : " · unavailable"}
+                    {e.sources.length ? ` · ${e.sources.length} server${e.sources.length > 1 ? "s" : ""}` : " · sources checked when selected"}
                   </p>
                 </div>
               </Link>

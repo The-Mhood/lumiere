@@ -5,6 +5,7 @@ import { and, asc, desc, eq, ilike, inArray, ne, or, sql, SQL } from "drizzle-or
 import { db } from "@/db";
 import {
   playbackChecks,
+  episodePlaybackChecks,
   availability,
   credits,
   episodes,
@@ -158,7 +159,7 @@ export async function queryCatalogue(q: CatalogueQuery) {
 export async function homeRails() {
   return cached("home", 60, async () => {
     const [featured, trending, popular, recent, series, topRated] = await Promise.all([
-      db.select().from(titles).where(and(browsableTitle(), eq(titles.featured, true))).orderBy(desc(titles.popularity)).limit(5),
+      db.select().from(titles).where(browsableTitle()).orderBy(desc(titles.featured), desc(titles.popularity)).limit(5),
       db.select(cardColumns).from(titles).where(browsableTitle()).orderBy(desc(titles.popularity)).limit(12),
       db.select(cardColumns).from(titles).where(and(browsableTitle(), eq(titles.kind, "movie"))).orderBy(desc(titles.voteCount)).limit(12),
       db.select(cardColumns).from(titles).where(browsableTitle()).orderBy(desc(titles.createdAt), desc(titles.id)).limit(12),
@@ -178,14 +179,14 @@ export async function homeRails() {
       .from(episodes)
       .innerJoin(seasons, eq(seasons.id, episodes.seasonId))
       .innerJoin(titles, eq(titles.id, episodes.titleId))
-      .where(browsableTitle())
+      .where(and(browsableTitle(), sql`${episodes.id} in (select ${episodePlaybackChecks.episodeId} from ${episodePlaybackChecks} where ${episodePlaybackChecks.available} = true and ${episodePlaybackChecks.checkedAt} > now() - interval '24 hours')`))
       .orderBy(desc(episodes.airDate), desc(episodes.id))
       .limit(8);
 
     const archive = await db.select(cardColumns).from(titles).where(and(browsableTitle(), eq(titles.externalSource, "internet-archive"))).orderBy(desc(titles.rating), desc(titles.popularity)).limit(14);
     const genreRows = await db.select().from(genres).orderBy(asc(genres.name));
     const collections = await Promise.all(
-      genreRows.slice(0, 4).map(async (g) => ({
+      genreRows.map(async (g) => ({
         genre: g,
         items: await db
           .select(cardColumns)

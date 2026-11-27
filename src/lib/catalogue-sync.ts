@@ -46,7 +46,7 @@ export async function syncCatalogue() {
         if (!title) throw new Error('Metadata could not be stored');
         const episode = title.seasons.flatMap(s => s.episodes)[0];
         const result = await resolver.resolve(playbackIdentity(title, episode?.id));
-        await recordPlaybackLookup(title.id, result.sources.length > 0);
+        await recordPlaybackLookup(title.id, result.sources.length > 0, episode?.id);
         if (result.sources.length) state.available++; else state.failed++;
       } catch { state.failed++; }
     }

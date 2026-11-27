@@ -53,7 +53,7 @@ const server = createServer(async (req, res) => {
     res.once('close', () => { streams--; });
     return gateway.serve(req, res);
   }
-  if (req.method === 'GET' && req.url === '/health') return send(200, { status: 'ok', sites: sites.map(s => s.id), active });
+  if (req.method === 'GET' && req.url === '/health') return send(200, { status: 'ok', sites: sites.map(s => s.id), adapters: sites.map(s => ({ id: s.id, movie: Boolean(s.movieUrl), series: Boolean(s.episodeUrl) })), active });
   if (req.method !== 'POST' || req.url !== '/resolve') return send(404, { error: 'Not found' });
   if (active >= maxConcurrent || browserContexts >= 4) return send(503, { error: 'Scraper capacity reached; retry later' });
   active++;

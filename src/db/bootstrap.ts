@@ -175,6 +175,10 @@ export async function bootstrapSchema(db: Executable): Promise<void> {
     title_id integer PRIMARY KEY REFERENCES titles(id) ON DELETE CASCADE,
     available boolean NOT NULL DEFAULT false,
     checked_at timestamptz NOT NULL DEFAULT now()
+  )`, `CREATE TABLE IF NOT EXISTS episode_playback_checks (
+    episode_id integer PRIMARY KEY REFERENCES episodes(id) ON DELETE CASCADE,
+    available boolean NOT NULL DEFAULT false,
+    checked_at timestamptz NOT NULL DEFAULT now()
   )`]) {
     await db.execute(sql.raw(stmt));
   }

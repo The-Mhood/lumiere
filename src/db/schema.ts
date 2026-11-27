@@ -294,3 +294,9 @@ export const playbackChecks = pgTable('playback_checks', {
   available: boolean('available').notNull().default(false),
   checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const episodePlaybackChecks = pgTable('episode_playback_checks', {
+  episodeId: integer('episode_id').primaryKey().references(() => episodes.id, { onDelete: 'cascade' }),
+  available: boolean('available').notNull().default(false),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -33,13 +33,14 @@ export default async function WatchPage({
 
   const allEpisodes = title.seasons.flatMap((s) => s.episodes.map((e) => ({ ...e, seasonNumber: s.number })));
   let episode = allEpisodes.find((e) => e.id === Number(sp.ep));
+  if (title.kind === "series" && sp.ep && !episode) notFound();
   if (title.kind === "series" && !episode) episode = allEpisodes[0];
   if (title.kind === "series" && !episode) notFound();
 
   const remotePreview = remotePreviewConfigured() && title.kind === 'movie' && Boolean(playbackIdentity(title).tmdbId);
   const resolution = remotePreview ? { sources: [], reports: [] } : await (await getResolver()).resolve(playbackIdentity(title, episode?.id));
   const sources = resolution.sources;
-  if (!remotePreview) await recordPlaybackLookup(title.id, sources.length > 0);
+  if (!remotePreview) await recordPlaybackLookup(title.id, sources.length > 0, episode?.id);
   const idx = episode ? allEpisodes.findIndex((e) => e.id === episode!.id) : -1;
   const prev = idx > 0 ? allEpisodes[idx - 1] : undefined;
   const next = idx >= 0 && idx < allEpisodes.length - 1 ? allEpisodes[idx + 1] : undefined;

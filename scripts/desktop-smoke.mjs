@@ -87,15 +87,15 @@ try {
   let page = await launch();
   const origin = new URL(page.url()).origin;
   progress('Checking search');
-  await page.goto(`${origin}/search?q=sintel`);
+  await page.goto(`${origin}/search?q=sintel`, { waitUntil: 'domcontentloaded' });
   await page.getByText('Sintel', { exact: true }).first().waitFor();
   progress('Checking title pages');
-  await page.goto(`${origin}/title/sintel`);
+  await page.goto(`${origin}/title/sintel`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'Sintel', exact: true }).waitFor();
-  await page.goto(`${origin}/title/caminandes`);
+  await page.goto(`${origin}/title/caminandes`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'Caminandes', exact: true }).waitFor();
   progress('Checking device settings');
-  await page.goto(`${origin}/settings`);
+  await page.goto(`${origin}/settings`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('checkbox').uncheck();
   await page.getByRole('button', { name: 'Save preferences' }).click();
   await page.getByRole('status').filter({ hasText: 'Saved' }).waitFor();
@@ -107,7 +107,7 @@ try {
     if (!primary?.url) throw new Error('No primary source resolved for fallback test');
     const blockPrimary = (url) => url.href === primary.url;
     await page.route(blockPrimary, (route) => { primaryBlocked = true; return route.abort('failed'); });
-    await page.goto(`${origin}/watch/big-buck-bunny`);
+    await page.goto(`${origin}/watch/big-buck-bunny`, { waitUntil: 'domcontentloaded' });
     const video = page.locator('video');
     async function mediaState(fn) {
       let timer;
@@ -149,7 +149,7 @@ try {
     const movies = ['sintel', 'tears-of-steel', 'elephants-dream', 'cosmos-laundromat', 'spring', 'agent-327-operation-barbershop', 'sprite-fright', 'charge'];
     for (const slug of movies) {
       progress(`Checking full catalogue playback: ${slug}`);
-      await page.goto(`${origin}/watch/${slug}`);
+      await page.goto(`${origin}/watch/${slug}`, { waitUntil: 'domcontentloaded' });
       await expect.poll(() => mediaState((v) => v.readyState), { timeout: 90000 }).toBeGreaterThanOrEqual(2);
       if (await mediaState((v) => v.paused)) await page.getByRole('button', { name: 'Play (k)', exact: true }).click();
       await expect.poll(() => mediaState((v) => v.currentTime), { timeout: 30000 }).toBeGreaterThan(1);
@@ -161,7 +161,7 @@ try {
   await closeApp();
   await new Promise((r) => setTimeout(r, 1000));
   page = await launch();
-  await page.goto(`${new URL(page.url()).origin}/settings`);
+  await page.goto(`${new URL(page.url()).origin}/settings`, { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('checkbox')).not.toBeChecked();
   progress('PASS: independently launched package, search, details, settings and restart.');
   console.log('Subtitles, audio/quality, episode playback and signed installation remain manual release gates.');

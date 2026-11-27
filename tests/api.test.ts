@@ -118,6 +118,23 @@ describe('catalogue operations', () => {
       expect(await response.json()).toMatchObject({ running: false });
     } finally { vi.unstubAllEnvs(); }
   });
+  it('reports actual metadata/worker adapter parity without publishing service secrets', async () => {
+    const { GET } = await import('@/app/api/admin/readiness/route');
+    const { cache } = await import('@/lib/cache'); cache.clearPrefix('tmdb:discovery:');
+    vi.stubEnv('AGGREGATOR_TOKEN', 'test-admin-token-with-32-characters');
+    vi.stubEnv('TMDB_READ_ACCESS_TOKEN', 'private-metadata-token');
+    vi.stubEnv('LUMIERE_MEDIA_WORKER_URL', 'http://worker:3200');
+    vi.stubEnv('LUMIERE_MEDIA_WORKER_TOKEN', 'private-worker-token-with-32-chars');
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: URL) => new Response(JSON.stringify(url.hostname === 'worker' ? { status: 'ok', adapters: [{ id: 'cinejoy', movie: true, series: false }, { id: 'unregistered', movie: true, series: true }] } : { images: {} }))));
+    try {
+      expect((await GET(new Request('http://localhost/api/admin/readiness'))).status).toBe(401);
+      const response = await GET(new Request('http://localhost/api/admin/readiness', { headers: { Authorization: 'Bearer test-admin-token-with-32-characters' } }));
+      const data = await response.json();
+      expect(data).toMatchObject({ metadata: true, worker: true, movieLookupReady: true, tvLookupReady: false });
+      expect(data.adapters).toHaveLength(1);
+      expect(JSON.stringify(data)).not.toContain('private-');
+    } finally { vi.unstubAllEnvs(); vi.unstubAllGlobals(); cache.clearPrefix('tmdb:discovery:'); }
+  });
   it('materializes genuine TV episode coordinates idempotently without inventing sources', async () => {
     const { materializeTmdbSeries } = await import('@/lib/tmdb-discovery');
     const { cache } = await import('@/lib/cache');
@@ -134,6 +151,15 @@ describe('catalogue operations', () => {
       expect(result?.seasons[0].episodes[0]).toMatchObject({ number: 1, name: 'Pilot', sources: [] });
       const { playbackIdentity } = await import('@/lib/streaming/identity');
       expect(playbackIdentity(result!, result!.seasons[0].episodes[0].id)).toMatchObject({ tmdbId: 1396, seasonNumber: 1, episodeNumber: 1 });
+      const { episodes: episodeTable } = await import('@/db/schema');
+      const { recordPlaybackLookup, recentlyPlayable } = await import('@/lib/streaming/availability');
+      const [second] = await db.insert(episodeTable).values({ titleId: result!.id, seasonId: result!.seasons[0].id, number: 2, name: 'Second test episode' }).returning();
+      await recordPlaybackLookup(result!.id, true, result!.seasons[0].episodes[0].id);
+      await recordPlaybackLookup(result!.id, false, second.id);
+      expect(await recentlyPlayable(result!.id)).toBe(true);
+      await expect(recordPlaybackLookup(result!.id + 100000, true, second.id)).rejects.toThrow('does not belong');
+      await recordPlaybackLookup(result!.id, false, result!.seasons[0].episodes[0].id);
+      expect(await recentlyPlayable(result!.id)).toBe(false);
     } finally {
       await db.delete(titles).where(eq(titles.slug, 'tmdb-series-1396'));
       vi.unstubAllEnvs(); vi.unstubAllGlobals(); cache.clearPrefix('tmdb:discovery:');

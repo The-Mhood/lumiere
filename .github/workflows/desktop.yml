@@ -62,6 +62,9 @@ jobs:
         timeout-minutes: 15
         env:
           LUMIERE_LIVE_MEDIA_TEST: '1'
+          # Hosted Intel runners report EGL initialization failures; use software
+          # rendering in CI only. Shipped applications retain GPU acceleration.
+          LUMIERE_DISABLE_GPU: ${{ matrix.arch == 'x64' && matrix.target == 'mac' && '1' || '0' }}
         shell: bash
         run: |
           set -o pipefail
