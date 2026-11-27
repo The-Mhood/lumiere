@@ -1,3 +1,5 @@
+import { GET as relayMedia } from '../src/app/api/playback/[...path]/route';
+import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -7,13 +9,23 @@ import { BrowserScraperProvider } from '../src/lib/streaming/browser-scraper';
 import { rankSources } from '../src/lib/streaming';
 
 const token = randomBytes(32).toString('hex');
+process.env.LUMIERE_MEDIA_WORKER_URL = 'http://127.0.0.1:3200';
+process.env.LUMIERE_MEDIA_WORKER_TOKEN = token;
 const worker = spawn(process.execPath, ['scripts/media-worker.mjs'], { env: { ...process.env, PORT: '3200', LUMIERE_MEDIA_WORKER_TOKEN: token }, stdio: ['ignore', 'pipe', 'pipe'] });
 let output = '';
 worker.stdout.on('data', chunk => { output += chunk; });
 worker.stderr.on('data', chunk => { output += chunk; });
 const watchdog = setTimeout(() => { console.error('Scraper verification exceeded 150 seconds'); worker.kill('SIGKILL'); process.exit(1); }, 150000);
 const server = createServer(async (req, res) => {
-  if (req.url === '/shaka.js') {
+  if (req.url?.startsWith('/api/playback/')) {
+    const headers = new Headers();
+    if (req.headers.range) headers.set('Range', req.headers.range);
+    const response = await relayMedia(new Request(`http://127.0.0.1:3300${req.url}`, { headers }), { params: Promise.resolve({ path: req.url.slice('/api/playback/'.length).split('/') }) });
+    response.headers.forEach((value, name) => res.setHeader(name, value));
+    res.writeHead(response.status);
+    if (!response.body) res.end();
+    else Readable.fromWeb(response.body as import('node:stream/web').ReadableStream).on('error', () => res.destroy()).pipe(res);
+  } else if (req.url === '/shaka.js') {
     res.setHeader('Content-Type', 'application/javascript');
     res.end(await readFile('node_modules/shaka-player/dist/shaka-player.compiled.js'));
   } else { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><video controls muted autoplay></video><script src="/shaka.js"></script>'); }
@@ -58,7 +70,7 @@ try {
   await page.waitForFunction(() => document.querySelector('video')!.currentTime > 2, { timeout: 30000 });
   const media = await page.locator('video').evaluate((v: HTMLVideoElement) => ({ duration: v.duration, time: v.currentTime, readyState: v.readyState }));
   if (media.duration < 8000 || media.duration > 10000) throw new Error('Resolved media does not have the expected full-film duration');
-  const report = { status: 'passed', movie: 'Inception (2010)', tmdbId: 27205, sources: sources.map(s => ({ provider: s.providerSlug, format: s.format, host: new URL(s.url).hostname })), media, errors };
+  const report = { status: 'passed', movie: 'Inception (2010)', tmdbId: 27205, sources: sources.map(s => ({ provider: s.providerSlug, format: s.format, host: new URL(s.url, 'http://same-origin-relay').hostname })), media, errors };
   await mkdir('catalogue-report', { recursive: true });
   await writeFile('catalogue-report/playback.json', JSON.stringify(report, null, 2));
   console.log(`::notice title=Independent scraper playback::${JSON.stringify(report)}`);

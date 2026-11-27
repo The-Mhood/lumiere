@@ -4,7 +4,7 @@ import type { ProviderAdapter, TitleMatch } from './resolver';
 import { detectFormat, hostAllowed, type SourceRecord } from '../streaming';
 
 export interface ScraperSite { id: string; name: string; mediaHosts: string[]; priority?: number }
-interface WorkerResult { provider: string; sources: { url: string; format: string; label?: string }[] }
+interface WorkerResult { provider: string; sources: { url: string; format: string; label?: string; playbackPath?: string }[] }
 
 export function configuredScraperSites(): ScraperSite[] {
   const raw = process.env.LUMIERE_SCRAPER_PROVIDERS;
@@ -66,7 +66,8 @@ export class BrowserScraperProvider implements ProviderAdapter {
         const format = detectFormat(url.href);
         if (!['mp4', 'hls', 'dash'].includes(source.format) || (format && format !== source.format)) continue;
         const id = -parseInt(createHash('sha256').update(`${site.id}:${url.href}`).digest('hex').slice(0, 7), 16);
-        records.push({ id, label: `${site.name} · ${source.format.toUpperCase()}`, url: url.href,
+        const playbackUrl = typeof source.playbackPath === 'string' && /^\/stream\/[A-Za-z0-9_-]{32}\/media\.(?:m3u8|mp4)$/.test(source.playbackPath) ? source.playbackPath.replace('/stream/', '/api/playback/') : undefined;
+        records.push({ id, playbackUrl, label: `${site.name} · ${source.format.toUpperCase()}`, url: url.href,
           format: source.format as SourceRecord['format'], formatVerified: true, resolutions: [], audioLanguages: [], subtitleLanguages: [], subtitles: [], status: 'unknown', priority: site.priority ?? 20,
           provider: { slug: site.id, name: site.name, authorized: true, allowedHosts: site.mediaHosts, priority: site.priority ?? 20 },
         });

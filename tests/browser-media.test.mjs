@@ -20,3 +20,23 @@ describe('browser worker safety and media detection', () => {
     expect(() => validateRequest({ kind: 'movie', tmdbId: '1' })).toThrow();
   });
 });
+
+import { MediaGateway } from '../scripts/lib/media-gateway.mjs';
+describe('opaque same-origin media gateway', () => {
+  it('rewrites variants, segments and key URIs without exposing upstream URLs', () => {
+    const gateway = new MediaGateway();
+    const input = '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXTINF:4,\nsegment.ts\nvariant.m3u8';
+    const output = gateway.rewriteHls(input, 'https://media.example.org/film/master.m3u8', ['media.example.org']);
+    expect(output).not.toContain('https://');
+    expect(output).toContain('/api/playback/');
+    expect(output).toMatch(/URI="\/api\/playback\/[A-Za-z0-9_-]{32}\/media.bin"/);
+    expect(gateway.grants.size).toBe(3);
+  });
+  it('refuses unknown origins and reuses handles without permitting arbitrary target URLs', () => {
+    const gateway = new MediaGateway();
+    const url = 'https://media.example.org/film.mp4';
+    expect(gateway.register(url, ['media.example.org'])).toBe(gateway.register(url, ['media.example.org']));
+    expect(() => gateway.register('https://evil.test/video.mp4', ['media.example.org'])).toThrow();
+    expect(() => gateway.rewriteHls('#EXTM3U\nhttp://127.0.0.1/private', url, ['media.example.org'])).toThrow();
+  });
+});

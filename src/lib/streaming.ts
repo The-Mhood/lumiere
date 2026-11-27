@@ -35,6 +35,8 @@ export interface PlayableSource {
 export interface SourceRecord {
   /** Set only by server-side adapters that validated response MIME/manifest. */
   formatVerified?: boolean;
+  /** Only server-created opaque same-origin media relay paths are permitted. */
+  playbackUrl?: string;
   id: number;
   label: string;
   url: string;
@@ -137,7 +139,7 @@ export function rankSources(sources: SourceRecord[]): PlayableSource[] {
       label: s.label,
       provider: s.provider.name,
       providerSlug: s.provider.slug,
-      url: s.url,
+      url: s.playbackUrl && /^\/api\/playback\/[A-Za-z0-9_-]{32}\/media\.(?:m3u8|mp4)$/.test(s.playbackUrl) ? s.playbackUrl : s.url,
       format: s.format,
       resolutions: s.resolutions,
       audioLanguages: s.audioLanguages,

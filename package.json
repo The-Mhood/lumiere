@@ -15,7 +15,9 @@
     "desktop": "npm run desktop:prepare && electron .",
     "desktop:pack": "npm run desktop:prepare && electron-builder --dir",
     "desktop:mac": "npm run desktop:prepare && electron-builder --mac --config.productName=Lumiere",
-    "desktop:win": "npm run desktop:prepare && electron-builder --win"
+    "desktop:win": "npm run desktop:prepare && electron-builder --win",
+    "media:worker": "node scripts/media-worker.mjs",
+    "test:media-live": "tsx scripts/verify-scraper.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.6.0",
