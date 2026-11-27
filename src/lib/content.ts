@@ -214,6 +214,7 @@ export async function getTitleBySlug(slug: string) {
     [title] = await db.select().from(titles).where(eq(titles.slug, slug)).limit(1);
   }
   if (!title) return null;
+  if (!title.externalSource && process.env.LUMIERE_SEED_DEMOS !== "1" && process.env.NODE_ENV !== "test") return null;
 
   const [genreRows, creditRows, seasonRows, episodeRows, rawSources, availabilityRows] = await Promise.all([
     db
@@ -312,7 +313,7 @@ export async function continueWatching(userId: number) {
     .from(watchProgress)
     .innerJoin(titles, eq(titles.id, watchProgress.titleId))
     .leftJoin(episodes, eq(episodes.id, watchProgress.episodeId))
-    .where(and(eq(watchProgress.userId, userId), eq(watchProgress.completed, false)))
+    .where(and(browsableTitle(), eq(watchProgress.userId, userId), eq(watchProgress.completed, false)))
     .orderBy(desc(watchProgress.updatedAt))
     .limit(12);
   return rows;

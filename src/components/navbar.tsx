@@ -50,7 +50,7 @@ export function Navbar({ user }: { user: NavUser }) {
     const t = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(q)}&limit=6`, { signal: ctrl.signal })
         .then((r) => r.json())
-        .then((d) => setSuggest(d.data?.items ?? []))
+        .then((d) => setSuggest((d.data?.items ?? []).slice(0, 6)))
         .catch(() => {});
     }, 200);
     return () => {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { episodes, titles, watchlist, watchProgress } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,13 +19,13 @@ export default async function LibraryPage() {
   };
 
   const [list, history] = await Promise.all([
-    db.select(card).from(watchlist).innerJoin(titles, eq(titles.id, watchlist.titleId)).where(eq(watchlist.userId, user.id)).orderBy(desc(watchlist.addedAt)),
+    db.select(card).from(watchlist).innerJoin(titles, eq(titles.id, watchlist.titleId)).where(and(eq(watchlist.userId, user.id), isNotNull(titles.externalSource))).orderBy(desc(watchlist.addedAt)),
     db
       .select({ progress: watchProgress, title: card, episode: { id: episodes.id, name: episodes.name, number: episodes.number } })
       .from(watchProgress)
       .innerJoin(titles, eq(titles.id, watchProgress.titleId))
       .leftJoin(episodes, eq(episodes.id, watchProgress.episodeId))
-      .where(eq(watchProgress.userId, user.id))
+      .where(and(eq(watchProgress.userId, user.id), isNotNull(titles.externalSource)))
       .orderBy(desc(watchProgress.updatedAt))
       .limit(40),
   ]);

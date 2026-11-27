@@ -1,3 +1,42 @@
+## Search, operations, deployment tooling — latest update
+
+Implementation commit `7119a13` adds:
+
+- Matching TMDB movie/TV search, with real series identities and episode metadata;
+  results explicitly distinguish discovery from source availability. Empty input
+  does not call upstream, and people results are excluded from movie/TV cards.
+- Private authenticated catalogue scheduling/status, rotating provider metadata,
+  real genre associations and bounded source checks. Source failures are not
+  promoted to public playable rails. Single-app-process scheduling only.
+- Docker web + Chromium worker images, private worker network, durable app volume,
+  HTTPS Caddy proxy and recurring scheduler. Generated private secrets are ignored.
+- Public HTTPS server origin in Windows/macOS builds via repository Actions
+  variable `LUMIERE_DESKTOP_SERVER_URL`, without embedding provider secrets.
+  The bundled backend and isolated local native regression path are retained.
+- Default production routes/library/history omit old sample films; existing data
+  is preserved rather than deleted. Demo fixtures remain explicitly test-only.
+
+**Verified:** local 61 tests / 11 files, lint, typecheck, standalone build pass.
+Production image CI **46027615252** passed both builds and live web-container
+health/platform/search-without-demos checks. Docker is unavailable in this sandbox;
+these container executions were performed on the GitHub runner. They do not
+certify a real TMDB credential, the Compose TLS/domain deployment, worker access
+from a future host, or all-site media availability.
+
+**Owner action required:** follow `deploy/README.md`: obtain TMDB's own read token,
+provision a Docker host/domain, configure private `deploy/.env`, start Compose,
+then set the public desktop server origin and build installers. Never send
+credentials in chat or commit them. No permanent hosting account was provisioned.
+
+**Remaining development/release gates:** one real movie-site adapter only; no
+verified TV source template; no universal media access; platform categories
+cannot populate here while TMDB credentials remain absent. TV episode metadata
+support does not mean TV playback works. Signing/notarization, service-backed
+native acceptance, backup/restore, load and security review remain outstanding.
+The product must not be described as finished or every source connected.
+
+---
+
 ## Playable-only catalogue and Platforms update
 
 Implemented at `61a7760` (native fixture isolation at `2d2fdaa`):

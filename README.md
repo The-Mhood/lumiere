@@ -1,3 +1,21 @@
+## Persistent deployment and live search
+
+Start with **[deploy/README.md](deploy/README.md)** for the exact owner launch
+steps: TMDB read token, Docker server/domain, generated private service secrets,
+HTTPS, ongoing catalogue checks, and Windows/macOS server configuration.
+
+Search now queries matching TMDB movie/TV metadata (when configured), separately
+from the source-checked browsing catalogue. Real series/seasons/episodes can be
+materialized without sample fixtures. This does not certify a working TV media
+adapter. A bounded scheduler progressively checks platform/trending candidates;
+it does not promise every movie or every platform is playable.
+
+Production web/worker images built successfully and web health/platform/no-demo
+smoke checks passed in [run 46027615252](https://github.com/The-Mhood/lumiere/actions/runs/46027615252).
+A permanent server has **not** been provisioned, credentials are not supplied,
+and TV/all-source playback remain incomplete. Demo title routes and old demo
+history cards are also excluded from the default production UI.
+
 ## Public catalogue behaviour
 
 Public browsing now excludes demo seeds and unverified imports: titles need a
