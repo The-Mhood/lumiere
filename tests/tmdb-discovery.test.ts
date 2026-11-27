@@ -21,10 +21,15 @@ describe('live movie discovery, not bulk imports', () => {
     expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer owner-test-token');
   });
   it('builds separate trending, popular, current and top-rated rails', async () => {
-    const fetch = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ results: [movie] })));
+    const fetch = vi.fn().mockImplementation(async (url: URL) => new Response(JSON.stringify(
+      url.pathname.endsWith('/genre/movie/list') ? { genres: [{ id: 28, name: 'Action' }] } :
+      url.pathname.endsWith('/watch/providers/movie') ? { results: [{ provider_id: 8, provider_name: 'Netflix', display_priority: 1 }] } : { results: [movie] }
+    )));
     vi.stubGlobal('fetch', fetch);
     const home = await tmdbHomeMovies();
-    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(fetch).toHaveBeenCalledTimes(7);
+    expect(home.collections[0].genre.slug).toBe("action");
+    expect(home.watchProviders[0].id).toBe(8);
     expect(home.featured[0].externalId).toBe('movie:27205');
     expect(home.trending[0].name).toBe('Inception');
   });

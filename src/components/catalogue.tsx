@@ -22,6 +22,7 @@ export function parseQuery(sp: SearchParams, kind?: "movie" | "series"): Catalog
     country: one("country") || undefined,
     quality: one("quality") || undefined,
     platform: one("platform") || undefined,
+    watchProvider: /^\d+$/.test(one("watchProvider") ?? "") ? Number(one("watchProvider")) : undefined,
     q: one("q") || undefined,
     sort: SORTS.some((s) => s.key === sort) ? sort : "popular",
     page: one("page") ? Number(one("page")) : 1,
@@ -35,6 +36,7 @@ function buildHref(base: string, q: CatalogueQuery, patch: Partial<CatalogueQuer
   if (merged.year) p.set("year", String(merged.year));
   if (merged.country) p.set("country", merged.country);
   if (merged.quality) p.set("quality", merged.quality);
+  if (merged.watchProvider) p.set("watchProvider", String(merged.watchProvider));
   if (merged.platform) p.set("platform", merged.platform);
   if (merged.q) p.set("q", merged.q);
   if (merged.sort && merged.sort !== "popular") p.set("sort", merged.sort);

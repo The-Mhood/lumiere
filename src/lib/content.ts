@@ -47,6 +47,7 @@ export interface CatalogueQuery {
   quality?: string;
   platform?: string;
   q?: string;
+  watchProvider?: number;
   sort?: SortKey;
   page?: number;
   pageSize?: number;
@@ -165,7 +166,7 @@ export async function homeRails() {
           .limit(12),
       })),
     );
-    const local = { featured, trending, popular, recent, series, topRated, latestEpisodes, collections, archive, cinejoy, discoveryNotice: undefined as string | undefined };
+    const local = { featured, trending, popular, recent, series, topRated, latestEpisodes, collections, archive, cinejoy, watchProviders: [] as { id: number; name: string; logo: string | null }[], discoveryNotice: undefined as string | undefined };
     if (tmdbConfigured()) {
       try { return { ...local, ...await tmdbHomeMovies() }; }
       catch { return { ...local, discoveryNotice: 'Live movie discovery is unavailable. Showing your local library.' }; }

@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     quality: sp.get("quality") ?? undefined,
     platform: sp.get("platform") ?? undefined,
     q: sp.get("q") ?? undefined,
+    watchProvider: /^\d+$/.test(sp.get("watchProvider") ?? "") ? Number(sp.get("watchProvider")) : undefined,
     sort: (sp.get("sort") as SortKey) ?? "popular",
     page: Number(sp.get("page") ?? 1),
     pageSize: Number(sp.get("pageSize") ?? sp.get("limit") ?? 24),

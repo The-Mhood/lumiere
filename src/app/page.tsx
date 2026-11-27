@@ -49,7 +49,23 @@ export default async function HomePage() {
         </Rail>
       )}
 
-      {rails.cinejoy.length > 0 && (
+      {rails.watchProviders.length > 0 && (
+        <section className="mx-auto mt-10 max-w-7xl px-4 sm:px-6">
+          <h2 className="font-display text-xl font-semibold sm:text-2xl">Browse by provider</h2>
+          <p className="mt-1 text-sm text-mist">Discover provider catalogues. Playback sources are resolved separately when you watch.</p>
+          <div className="rail mt-4 gap-4">
+            {rails.watchProviders.map(provider => (
+              <Link key={provider.id} href={`/movies?watchProvider=${provider.id}`} className="flex w-28 shrink-0 flex-col items-center gap-2 rounded-xl bg-white/5 p-4 text-center text-xs hover:bg-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {provider.logo && <img src={provider.logo} alt="" className="h-14 w-14 rounded-xl object-cover" />}
+                <span>{provider.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {rails.watchProviders.length === 0 && rails.cinejoy.length > 0 && (
         <Rail title="Cinejoy catalogue" href="/movies" subtitle="Imported listings · in-app playback not yet verified">
           {rails.cinejoy.map((t) => <TitleCard key={t.id} item={t} />)}
         </Rail>

@@ -51,6 +51,10 @@ export async function discoverMovies(q: CatalogueQuery) {
       if (genre) params.with_genres = String(genre.id);
     }
   }
+  if (!q.q && q.watchProvider && Number.isSafeInteger(q.watchProvider) && q.watchProvider > 0) {
+    params.with_watch_providers = String(q.watchProvider);
+    params.watch_region = process.env.TMDB_WATCH_REGION || 'US';
+  }
   if (q.year) params[q.q ? 'year' : 'primary_release_year'] = String(q.year);
   const data = await tmdbGet<Page>(path, params);
   return { items: data.results.filter(m => Number.isSafeInteger(m.id) && m.title).map(movieCard), total: data.total_results, page, pageSize: 20, pages: Math.min(500, data.total_pages) };
@@ -69,7 +73,16 @@ export async function tmdbHomeMovies() {
     trailerUrl: null, license: 'Playback rights depend on the selected provider', featured: true,
     externalSource: 'tmdb', externalId: `movie:${m.id}`, createdAt: new Date(0),
   }));
-  return { trending, popular, recent, topRated, featured };
+  const [providerPage, genrePage] = await Promise.all([
+    tmdbGet<{ results: { provider_id: number; provider_name: string; logo_path?: string; display_priority: number }[] }>('/watch/providers/movie', { watch_region: process.env.TMDB_WATCH_REGION || 'US' }),
+    tmdbGet<{ genres: { id: number; name: string }[] }>('/genre/movie/list'),
+  ]);
+  const watchProviders = providerPage.results.sort((a, b) => a.display_priority - b.display_priority).slice(0, 16).map(p => ({ id: p.provider_id, name: p.provider_name, logo: p.logo_path ? `${IMAGE}w154${p.logo_path}` : null }));
+  const collections = await Promise.all(genrePage.genres.filter(g => [28, 35, 27, 878, 16, 18].includes(g.id)).map(async genre => {
+    const page = await tmdbGet<Page>('/discover/movie', { with_genres: String(genre.id), include_adult: 'false', sort_by: 'popularity.desc' });
+    return { genre: { ...genre, slug: genre.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') }, items: page.results.slice(0, 12).map(movieCard) };
+  }));
+  return { trending, popular, recent, topRated, featured, watchProviders, collections };
 }
 
 /** Persist only a clicked movie so existing watchlists/history keep stable IDs. */

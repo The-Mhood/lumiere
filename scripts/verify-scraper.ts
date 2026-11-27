@@ -34,8 +34,11 @@ try {
   const page = await browser.newPage();
   await page.goto('http://127.0.0.1:3300');
   const errors: string[] = [];
+  page.on('response', r => { if (r.status() >= 400) errors.push(`HTTP ${r.status()} from ${new URL(r.url()).hostname}`); });
+  page.on('requestfailed', r => errors.push(`${new URL(r.url()).hostname}: ${r.failure()?.errorText}`));
   page.on('pageerror', error => errors.push(error.message));
-  await page.evaluate(async url => {
+  const playbackError = await page.evaluate(async url => {
+    try {
     const shaka = (window as unknown as { shaka: { polyfill: { installAll(): void }; Player: new () => { attach(video: HTMLVideoElement): Promise<void>; load(url: string): Promise<void> } } }).shaka;
     shaka.polyfill.installAll();
     const player = new shaka.Player();
@@ -43,7 +46,13 @@ try {
     await player.attach(video);
     await player.load(url);
     await video.play();
+    return null;
+    } catch (error) {
+      const e = error as { code?: number; category?: number; severity?: number; message?: string; data?: unknown[] };
+      return { code: e.code, category: e.category, severity: e.severity, message: e.message, data: e.data?.map(value => typeof value === 'string' ? value.replace(/https?:\/\/\S+/g, '[URL omitted]') : typeof value === 'number' ? value : '[detail omitted]') };
+    }
   }, sources[0].url);
+  if (playbackError) throw new Error(`Independent player failed: ${JSON.stringify(playbackError)}; network: ${JSON.stringify(errors)}`);
   await page.waitForFunction(() => document.querySelector('video')!.currentTime > 2, { timeout: 30000 });
   const media = await page.locator('video').evaluate((v: HTMLVideoElement) => ({ duration: v.duration, time: v.currentTime, readyState: v.readyState }));
   if (media.duration < 8000 || media.duration > 10000) throw new Error('Resolved media does not have the expected full-film duration');
