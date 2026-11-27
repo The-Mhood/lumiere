@@ -81,6 +81,8 @@ export class MediaGateway {
         }
         const text = Buffer.concat(chunks).toString('utf8');
         if (!text.trimStart().startsWith('#EXTM3U')) throw new Error('Invalid HLS manifest');
+        const codecs = [...new Set([...text.matchAll(/CODECS="([^"]+)"/g)].map(m => m[1]))];
+        if (codecs.length) console.log(JSON.stringify({ gateway: 'manifest codecs', codecs: codecs.slice(0, 12) }));
         const body = this.rewriteHls(text, upstream.url, grant.hosts, grant.transport);
         res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' });
         res.end(body);

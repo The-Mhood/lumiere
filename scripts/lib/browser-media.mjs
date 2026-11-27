@@ -106,7 +106,7 @@ export async function scrapeMedia(browser, site, input, { timeoutMs = 40000, ret
     if (!found.size && !visitError) await Promise.race([observed, deadline]);
     if (found.size) {
       try {
-        await page.waitForFunction(() => [...document.querySelectorAll('video')].some(v => v.readyState >= 3 && v.currentTime > 0.5), { timeout: Math.max(1, timeoutMs - (Date.now() - started)) });
+        await page.waitForFunction(() => [...document.querySelectorAll('video')].some(v => v.readyState >= 3 && v.currentTime > 0.5), undefined, { timeout: Math.max(1, timeoutMs - (Date.now() - started)) });
       } catch { return { sources: [], reason: 'Public player did not start decoding media before its deadline', observedHosts: [...observedHosts] }; }
       const masters = [...found.values()].filter(s => s.master).reverse();
       const playable = masters.length ? masters : [...found.values()].reverse();

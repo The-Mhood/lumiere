@@ -345,7 +345,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
   if (!sources.length) {
     return (
       <div className="grid aspect-video w-full place-items-center rounded-2xl bg-ink-800 text-mist">
-        No authorized streaming source is available for this title.
+        No working playback source was returned for this title. You can retry the source search below.
       </div>
     );
   }
