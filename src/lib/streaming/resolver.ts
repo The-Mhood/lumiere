@@ -7,10 +7,15 @@ export interface TitleMatch {
   kind: "movie" | "series";
   episodeId?: number;
   episodeName?: string;
+  tmdbId?: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
 }
 export interface ProviderAdapter {
   id: string;
   priority: number;
+  timeoutMs?: number;
+  retries?: number;
   search(query: string, signal: AbortSignal): Promise<TitleMatch[]>;
   resolve(title: TitleMatch, signal: AbortSignal): Promise<SourceRecord[]>;
 }
@@ -52,9 +57,9 @@ export class SourceResolver {
       let attempts = 0;
       let error: string | undefined;
       let records: SourceRecord[] = [];
-      for (; attempts <= this.retries; ) {
+      for (; attempts <= (adapter.retries ?? this.retries); ) {
         attempts++;
-        try { records = await bounded((s) => adapter.resolve(title, s), this.timeoutMs); error = undefined; break; }
+        try { records = await bounded((s) => adapter.resolve(title, s), adapter.timeoutMs ?? this.timeoutMs); error = undefined; break; }
         catch (e) { error = e instanceof Error ? e.message : String(e); }
       }
       const playable = rankSources(records);

@@ -33,6 +33,8 @@ export interface PlayableSource {
 }
 
 export interface SourceRecord {
+  /** Set only by server-side adapters that validated response MIME/manifest. */
+  formatVerified?: boolean;
   id: number;
   label: string;
   url: string;
@@ -104,7 +106,7 @@ export function isSourcePlayable(src: SourceRecord): boolean {
   if (!src.provider.authorized) return false;
   if (!hostAllowed(src.url, src.provider.allowedHosts)) return false;
   const detected = detectFormat(src.url);
-  if (detected !== src.format) return false;
+  if (detected ? detected !== src.format : !src.formatVerified) return false;
   if (src.status === "offline") return false;
   return true;
 }
