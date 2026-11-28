@@ -80,6 +80,7 @@ describe("Internet Archive feature-film adapter", () => {
     expect(verifiedReuseLicence(undefined)).toBeNull();
     expect(verifiedReuseLicence("https://creativecommons.org/licenses/by-nc/4.0/")).toBeNull();
     expect(verifiedReuseLicence("https://creativecommons.org/licenses/by/4.0/")).toContain("Attribution 4.0");
+    expect(verifiedReuseLicence("http://creativecommons.org/licenses/publicdomain/")).toContain("public domain");
 
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(json({ response: { docs: [{ identifier: "unlicensed-feature", title: "Unlicensed Feature", runtime: "90 min" }] } }))
