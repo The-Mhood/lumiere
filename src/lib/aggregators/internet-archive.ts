@@ -81,6 +81,18 @@ function cleanText(s: string | string[] | undefined) {
     .trim();
 }
 
+/** Explicit Creative Commons/public-domain rights are required; collection membership is not proof. */
+export function verifiedReuseLicence(value?: string): string | null {
+  if (!value) return null;
+  let url: URL;
+  try { url = new URL(value); } catch { return null; }
+  if (url.protocol !== "https:" || !["creativecommons.org", "www.creativecommons.org"].includes(url.hostname.toLowerCase())) return null;
+  const path = url.pathname.toLowerCase().replace(/\\/+$/, "");
+  if (path === "/publicdomain/zero/1.0" || path === "/publicdomain/mark/1.0") return "Creative Commons public-domain dedication — " + url.href;
+  const match = path.match(/^\\/licenses\\/(by|by-sa)\\/(\\d+(?:\\.\\d+)?)$/);
+  if (!match) return null;
+  return "Creative Commons " + (match[1] === "by-sa" ? "Attribution-ShareAlike" : "Attribution") + " " + match[2] + " — " + url.href;
+}
 function genresFor(subjects: string[], title: string) {
   const text = [...subjects, title].join(" ");
   const out = new Set<string>();
@@ -133,6 +145,12 @@ export const internetArchiveAdapter: AggregatorAdapter = {
           ctx.log(`skip ${doc.identifier}: unavailable`);
           continue;
         }
+        const rawLicence = doc.licenseurl ?? (meta.metadata?.licenseurl as string | undefined);
+        const licence = verifiedReuseLicence(rawLicence);
+        if (!licence) {
+          ctx.log("skip item: no verified reusable licence");
+          continue;
+        }
         const mp4s = meta.files
           .filter((f) => /\.mp4$/i.test(f.name) && !/sample|trailer/i.test(f.name))
           .map((f) => ({ ...f, h: Number(f.height) || 0, len: Number(f.length) || 0 }))
@@ -152,7 +170,6 @@ export const internetArchiveAdapter: AggregatorAdapter = {
         const subjects = arr(doc.subject).flatMap((s) => s.split(/[;,]/)).map((s) => s.trim()).filter(Boolean);
         const title = cleanText(doc.title) || doc.identifier;
         const synopsis = cleanText(doc.description).slice(0, 1200) || `${title} (${year}) — a public-domain feature film preserved by the Internet Archive.`;
-        const licence = doc.licenseurl ?? (meta.metadata?.licenseurl as string | undefined);
         const seen = new Set<number>();
         const sources = mp4s
           .filter((f) => f.h > 0 && !seen.has(f.h) && seen.add(f.h))
@@ -193,7 +210,7 @@ export const internetArchiveAdapter: AggregatorAdapter = {
           popularity: Math.min(60, Math.log10((doc.downloads ?? 1000) + 1) * 8),
           posterUrl: `https://archive.org/services/img/${doc.identifier}`,
           backdropUrl: `https://archive.org/services/img/${doc.identifier}`,
-          license: licence ? `Public domain / ${licence.includes("creativecommons") ? "Creative Commons" : "open licence"} — ${licence}` : "Public domain — Internet Archive Feature Films",
+          license: licence,
           genres: genresFor(subjects, title),
           directors: arr(doc.creator).slice(0, 2),
           sources,
