@@ -1,8 +1,7 @@
 /**
  * Internet Archive adapter — public-domain & openly licensed feature films.
  * Uses the public advancedsearch + metadata APIs. Every imported item carries
- * its licence URL and streams directly from archive.org, which is the
- * rights-holder-sanctioned host for that collection.
+ * an explicitly verified reuse licence before its Archive-hosted stream is exposed.
  */
 import type { AggregatedTitle, AggregatorAdapter, AdapterContext } from "./types";
 
@@ -86,7 +85,8 @@ export function verifiedReuseLicence(value?: string): string | null {
   if (!value) return null;
   let url: URL;
   try { url = new URL(value); } catch { return null; }
-  if (url.protocol !== "https:" || !["creativecommons.org", "www.creativecommons.org"].includes(url.hostname.toLowerCase())) return null;
+  if (!["https:", "http:"].includes(url.protocol) || !["creativecommons.org", "www.creativecommons.org"].includes(url.hostname.toLowerCase())) return null;
+  url.protocol = "https:";
   const path = url.pathname.toLowerCase().split("?")[0].replace(/\/$/, "");
   if (path === "/publicdomain/zero/1.0" || path === "/publicdomain/mark/1.0") return "Creative Commons public-domain dedication — " + url.href;
   const parts = path.split("/").filter(Boolean);
@@ -169,7 +169,7 @@ export const internetArchiveAdapter: AggregatorAdapter = {
         const year = yearRaw ? Number(yearRaw) : 1950;
         const subjects = arr(doc.subject).flatMap((s) => s.split(/[;,]/)).map((s) => s.trim()).filter(Boolean);
         const title = cleanText(doc.title) || doc.identifier;
-        const synopsis = cleanText(doc.description).slice(0, 1200) || `${title} (${year}) — a public-domain feature film preserved by the Internet Archive.`;
+        const synopsis = cleanText(doc.description).slice(0, 1200) || `${title} (${year}) — an openly licensed feature film preserved by the Internet Archive.`;
         const seen = new Set<number>();
         const sources = mp4s
           .filter((f) => f.h > 0 && !seen.has(f.h) && seen.add(f.h))
