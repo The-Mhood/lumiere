@@ -88,7 +88,7 @@ export function verifiedReuseLicence(value?: string): string | null {
   if (!["https:", "http:"].includes(url.protocol) || !["creativecommons.org", "www.creativecommons.org"].includes(url.hostname.toLowerCase())) return null;
   url.protocol = "https:";
   const path = url.pathname.toLowerCase().split("?")[0].replace(/\/$/, "");
-  if (path === "/publicdomain/zero/1.0" || path === "/publicdomain/mark/1.0") return "Creative Commons public-domain dedication — " + url.href;
+  if (path === "/publicdomain/zero/1.0" || path === "/publicdomain/mark/1.0" || path === "/licenses/publicdomain") return "Internet Archive-declared public domain — " + url.href;
   const parts = path.split("/").filter(Boolean);
   if (parts.length !== 3 || parts[0] !== "licenses" || !["by", "by-sa"].includes(parts[1]) || !["1.0", "2.0", "2.5", "3.0", "4.0"].includes(parts[2])) return null;
   return "Creative Commons " + (parts[1] === "by-sa" ? "Attribution-ShareAlike" : "Attribution") + " " + parts[2] + " — " + url.href;
