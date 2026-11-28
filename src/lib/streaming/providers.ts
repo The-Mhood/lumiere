@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { titles, sources, providers, episodes } from "@/db/schema";
 import type { SourceRecord } from "../streaming";
 import { SourceResolver, type ProviderAdapter, type TitleMatch } from "./resolver";
+import { providerExtensions } from "./provider-extensions";
 
 /** Authorized catalogue adapter. Each CDN is isolated behind its own adapter.
  * Stable, licensed public URLs may be catalogued. Expiring integrations should
@@ -49,13 +50,16 @@ export async function getResolver() {
   const jellyfin = jellyfinSettings();
   const current = JSON.stringify([worker, token, scraperSites, process.env.LUMIERE_OFFICIAL_SOURCES,
     ownedMedia, jellyfin ? [jellyfin.baseUrl.href, jellyfin.apiKey, jellyfin.priority, jellyfin.allowHttp] : null,
-    configured.map((p) => [p.slug, p.priority, p.allowedHosts])]);
+    configured.map((p) => [p.slug, p.priority, p.allowedHosts]),
+    providerExtensions.map((adapter) => [adapter.id, adapter.priority])]);
   if (!resolver || signature !== current) {
     resolver = new SourceResolver([
       // Operator-owned/licensed media first, then the operator's own Jellyfin
-      // library, then public-page scrapers, catalogue rows and official demos.
+      // library, then approved extension providers, public-page scrapers,
+      // catalogue rows and optional official demonstration sources.
       ...(ownedMedia ? [new OwnedMediaProvider(ownedMedia)] : []),
       ...(jellyfin ? [new JellyfinProvider(jellyfin)] : []),
+      ...providerExtensions,
       ...(worker && token && scraperSites.length ? [new BrowserScraperProvider(worker, token, scraperSites)] : []),
       ...configured.map((p) => new CatalogueProvider(p.slug, p.priority)),
       ...(process.env.LUMIERE_OFFICIAL_SOURCES === "0" ? [] : [new BlenderProvider()]),
