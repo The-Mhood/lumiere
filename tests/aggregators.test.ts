@@ -49,5 +49,7 @@ describe("aggregated catalogue (after sync)", () => {
     const detail = await getTitleBySlug(rows[0].slug);
     expect(detail!.sources.length).toBeGreaterThan(0);
     expect(detail!.sources.every((s) => s.url.startsWith("https://archive.org/download/"))).toBe(true);
+    // Aggregation tests must not make real HTTP requests to fixture URLs.
+    expect(detail!.sources.every((s) => s.status === "unknown")).toBe(true);
   });
 });
