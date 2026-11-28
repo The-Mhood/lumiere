@@ -127,6 +127,7 @@ export const internetArchiveAdapter: AggregatorAdapter = {
       "mediatype:movies",
       "avg_rating:[3.5 TO 5]",
       "num_reviews:[3 TO null]",
+      "licenseurl:*",
       "-collection:opensource_movies",
     ].join(" AND ");
     const params = new URLSearchParams({ q, rows: String(rows), output: "json" });
