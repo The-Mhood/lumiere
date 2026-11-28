@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { internetArchiveAdapter } from "./internet-archive";
+import { internetArchiveAdapter, declaredReuseLicence } from "./internet-archive";
 
 const json = (body: unknown) => new Response(JSON.stringify(body), {
   status: 200,
@@ -74,6 +74,20 @@ describe("Internet Archive feature-film adapter", () => {
 
     const result = await internetArchiveAdapter.fetchCatalogue({ limit: 1, log: vi.fn() });
 
+    expect(result).toEqual([]);
+  });
+  it("requires explicit permissive reuse rights instead of assuming collection membership means public domain", async () => {
+    expect(declaredReuseLicence(undefined)).toBeNull();
+    expect(declaredReuseLicence("https://creativecommons.org/licenses/by-nc/4.0/")).toBeNull();
+    expect(declaredReuseLicence("https://creativecommons.org/licenses/by/4.0/")).toContain("Attribution 4.0");
+    expect(declaredReuseLicence("http://creativecommons.org/licenses/publicdomain/")).toContain("public domain");
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json({ response: { docs: [{ identifier: "unlicensed-feature", title: "Unlicensed Feature", runtime: "90 min" }] } }))
+      .mockResolvedValueOnce(json({ files: [{ name: "feature.mp4", height: "720", length: "5400" }], metadata: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await internetArchiveAdapter.fetchCatalogue({ limit: 1, log: vi.fn() });
     expect(result).toEqual([]);
   });
 });

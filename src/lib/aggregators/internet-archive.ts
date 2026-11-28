@@ -1,8 +1,7 @@
 /**
  * Internet Archive adapter — public-domain & openly licensed feature films.
  * Uses the public advancedsearch + metadata APIs. Every imported item carries
- * its licence URL and streams directly from archive.org, which is the
- * rights-holder-sanctioned host for that collection.
+ * an explicitly verified reuse licence before its Archive-hosted stream is exposed.
  */
 import type { AggregatedTitle, AggregatorAdapter, AdapterContext } from "./types";
 
@@ -81,6 +80,19 @@ function cleanText(s: string | string[] | undefined) {
     .trim();
 }
 
+/** Require an explicit, recognised rights declaration; collection membership alone is not proof. */
+export function declaredReuseLicence(value?: string): string | null {
+  if (!value) return null;
+  let url: URL;
+  try { url = new URL(value); } catch { return null; }
+  if (!["https:", "http:"].includes(url.protocol) || !["creativecommons.org", "www.creativecommons.org"].includes(url.hostname.toLowerCase())) return null;
+  url.protocol = "https:";
+  const path = url.pathname.toLowerCase().split("?")[0].replace(/\/$/, "");
+  if (path === "/publicdomain/zero/1.0" || path === "/publicdomain/mark/1.0" || path === "/licenses/publicdomain") return "Internet Archive-declared public domain — " + url.href;
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length !== 3 || parts[0] !== "licenses" || !["by", "by-sa"].includes(parts[1]) || !["1.0", "2.0", "2.5", "3.0", "4.0"].includes(parts[2])) return null;
+  return "Creative Commons " + (parts[1] === "by-sa" ? "Attribution-ShareAlike" : "Attribution") + " " + parts[2] + " — " + url.href;
+}
 function genresFor(subjects: string[], title: string) {
   const text = [...subjects, title].join(" ");
   const out = new Set<string>();
@@ -115,6 +127,7 @@ export const internetArchiveAdapter: AggregatorAdapter = {
       "mediatype:movies",
       "avg_rating:[3.5 TO 5]",
       "num_reviews:[3 TO null]",
+      "licenseurl:*",
       "-collection:opensource_movies",
     ].join(" AND ");
     const params = new URLSearchParams({ q, rows: String(rows), output: "json" });
@@ -131,6 +144,12 @@ export const internetArchiveAdapter: AggregatorAdapter = {
         const meta = await getJson<{ files?: MetaFile[]; metadata?: Record<string, string | string[]>; is_dark?: boolean }>(`${META}${doc.identifier}`);
         if (meta.is_dark || !meta.files?.length) {
           ctx.log(`skip ${doc.identifier}: unavailable`);
+          continue;
+        }
+        const rawLicence = doc.licenseurl ?? (meta.metadata?.licenseurl as string | undefined);
+        const licence = declaredReuseLicence(rawLicence);
+        if (!licence) {
+          ctx.log("skip item: no recognised reuse-rights declaration");
           continue;
         }
         const mp4s = meta.files
@@ -151,8 +170,7 @@ export const internetArchiveAdapter: AggregatorAdapter = {
         const year = yearRaw ? Number(yearRaw) : 1950;
         const subjects = arr(doc.subject).flatMap((s) => s.split(/[;,]/)).map((s) => s.trim()).filter(Boolean);
         const title = cleanText(doc.title) || doc.identifier;
-        const synopsis = cleanText(doc.description).slice(0, 1200) || `${title} (${year}) — a public-domain feature film preserved by the Internet Archive.`;
-        const licence = doc.licenseurl ?? (meta.metadata?.licenseurl as string | undefined);
+        const synopsis = cleanText(doc.description).slice(0, 1200) || `${title} (${year}) — an openly licensed feature film preserved by the Internet Archive.`;
         const seen = new Set<number>();
         const sources = mp4s
           .filter((f) => f.h > 0 && !seen.has(f.h) && seen.add(f.h))
@@ -193,7 +211,7 @@ export const internetArchiveAdapter: AggregatorAdapter = {
           popularity: Math.min(60, Math.log10((doc.downloads ?? 1000) + 1) * 8),
           posterUrl: `https://archive.org/services/img/${doc.identifier}`,
           backdropUrl: `https://archive.org/services/img/${doc.identifier}`,
-          license: licence ? `Public domain / ${licence.includes("creativecommons") ? "Creative Commons" : "open licence"} — ${licence}` : "Public domain — Internet Archive Feature Films",
+          license: licence,
           genres: genresFor(subjects, title),
           directors: arr(doc.creator).slice(0, 2),
           sources,

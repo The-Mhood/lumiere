@@ -26,9 +26,19 @@ import { rankSources, type PlayableSource, type SourceRecord } from "./streaming
  * stored for existing users but are never mixed into the production catalogue. */
 export function browsableTitle() {
   if (process.env.LUMIERE_SEED_DEMOS === "1" && process.env.LUMIERE_SMOKE_TEST === "1") return sql`true`;
-  return sql`${titles.externalSource} is not null and ${titles.id} in (
-    select ${playbackChecks.titleId} from ${playbackChecks}
-    where ${playbackChecks.available} = true and ${playbackChecks.checkedAt} > now() - interval '24 hours'
+  return sql`${titles.externalSource} is not null and (
+    ${titles.id} in (
+      select ${playbackChecks.titleId} from ${playbackChecks}
+      where ${playbackChecks.available} = true and ${playbackChecks.checkedAt} > now() - interval '24 hours'
+    )
+    or ${titles.id} in (
+      select ${sources.titleId} from ${sources}
+      inner join ${providers} on ${providers.id} = ${sources.providerId}
+      where ${sources.titleId} is not null
+        and ${providers.authorized} = true
+        and ${sources.status} = 'online'
+        and ${sources.lastCheckedAt} > now() - interval '24 hours'
+    )
   )`;
 }
 

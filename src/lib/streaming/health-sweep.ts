@@ -39,19 +39,30 @@ function classify(status: number, mime: string): SourceStatus {
   return 'degraded';
 }
 
-async function probe(url: string): Promise<SourceStatus> {
+async function probe(url: string, allowedHosts: string[]): Promise<SourceStatus> {
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { Range: 'bytes=0-1' },
-      redirect: 'error',
-      signal: AbortSignal.timeout(8000),
-      cache: 'no-store',
-    });
-    const mime = response.headers.get('content-type') ?? '';
-    // Never download the body: headers alone decide health.
-    await response.body?.cancel();
-    return classify(response.status, mime);
+    let current = url;
+    for (let redirects = 0; redirects <= 5; redirects++) {
+      if (!hostAllowed(current, allowedHosts)) return 'offline';
+      const response = await fetch(current, {
+        method: 'GET',
+        headers: { Range: 'bytes=0-1' },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(8000),
+        cache: 'no-store',
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        await response.body?.cancel();
+        if (!location || redirects === 5) return 'degraded';
+        current = new URL(location, current).href;
+        continue;
+      }
+      const mime = response.headers.get('content-type') ?? '';
+      await response.body?.cancel();
+      return classify(response.status, mime);
+    }
+    return 'degraded';
   } catch {
     return 'degraded'; // network failure/timeout may be transient
   }
@@ -72,7 +83,7 @@ export async function sweepSourceHealth(limit = 40): Promise<SweepResult> {
       for (;;) {
         const row = queue.shift();
         if (!row) return;
-        const status = hostAllowed(row.source.url, row.provider.allowedHosts) ? await probe(row.source.url) : 'offline';
+        const status = hostAllowed(row.source.url, row.provider.allowedHosts) ? await probe(row.source.url, row.provider.allowedHosts) : 'offline';
         await db.update(sources).set({ status, lastCheckedAt: new Date() }).where(eq(sources.id, row.source.id));
         state.checked++;
         state[status === 'online' ? 'online' : status === 'offline' ? 'offline' : 'degraded']++;
