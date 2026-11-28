@@ -213,7 +213,7 @@ export async function runAggregation(adapterKey: string, limit = 40, catalogue?:
     // Probe imported media immediately so verified titles can appear in the
     // browse catalogue without waiting for a separate scheduler cycle.
     const { sweepSourceHealth } = await import("../streaming/health-sweep");
-    const health = await sweepSourceHealth(Math.min(200, Math.max(1, items.length)));
+    const health = await sweepSourceHealth(Math.min(200, Math.max(40, items.length * 3)));
     log("source health sweep: " + health.checked + " checked, " + health.online + " online, " + health.offline + " offline");
     cache.clearPrefix("");
     await db.update(aggregatorRuns).set({ status: "success", imported, updated, skipped, errors, finishedAt: new Date() }).where(eq(aggregatorRuns.id, run.id));
