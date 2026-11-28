@@ -4,7 +4,7 @@ This document describes the provider boundary used by Lumière. Provider impleme
 
 ## Current real-media paths
 
-1. **Internet Archive** — the `internet-archive` aggregator imports long-form catalogue entries and direct MP4 files from the Archive's public metadata/download APIs. Run `npm run aggregate -- internet-archive 40` after configuring the database. Imported items are visible only after a successful playback-source check.
+1. **Internet Archive** — the `internet-archive` aggregator imports long-form catalogue entries and direct MP4 files from the Archive's public metadata/download APIs. Run `npm run aggregate -- internet-archive 40` after configuring the database. After import, Lumière probes allowlisted media URLs (including validated Archive CDN redirects); titles appear only after a recent source probe succeeds. The Archive licence field is uploader-declared metadata, not an independent legal guarantee, so confirm rights for the exact film/file before production distribution.
 2. **Operator-owned media** — `LUMIERE_OWNED_MEDIA_FILE` or `LUMIERE_OWNED_MEDIA` registers HTTPS HLS, DASH, or MP4 assets that the operator controls or is licensed to serve.
 3. **Jellyfin** — the official Jellyfin API resolves movies and individual TV episodes from an operator-managed library. Credentials stay server-side; playback uses same-origin relay grants.
 4. **TMDB discovery** — live search returns real movie/series metadata. Metadata is not represented as playable media; opening a title performs a separate source lookup.
