@@ -80,8 +80,8 @@ function cleanText(s: string | string[] | undefined) {
     .trim();
 }
 
-/** Explicit Creative Commons/public-domain rights are required; collection membership is not proof. */
-export function verifiedReuseLicence(value?: string): string | null {
+/** Require an explicit, recognised rights declaration; collection membership alone is not proof. */
+export function declaredReuseLicence(value?: string): string | null {
   if (!value) return null;
   let url: URL;
   try { url = new URL(value); } catch { return null; }
@@ -146,9 +146,9 @@ export const internetArchiveAdapter: AggregatorAdapter = {
           continue;
         }
         const rawLicence = doc.licenseurl ?? (meta.metadata?.licenseurl as string | undefined);
-        const licence = verifiedReuseLicence(rawLicence);
+        const licence = declaredReuseLicence(rawLicence);
         if (!licence) {
-          ctx.log("skip item: no verified reusable licence");
+          ctx.log("skip item: no recognised reuse-rights declaration");
           continue;
         }
         const mp4s = meta.files
