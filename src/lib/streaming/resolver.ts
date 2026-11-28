@@ -16,7 +16,7 @@ export interface ProviderAdapter {
   priority: number;
   timeoutMs?: number;
   retries?: number;
-  search(query: string, signal: AbortSignal): Promise<TitleMatch[]>;
+  search?(query: string, signal: AbortSignal): Promise<TitleMatch[]>;
   resolve(title: TitleMatch, signal: AbortSignal): Promise<SourceRecord[]>;
 }
 export interface ProviderReport {
@@ -48,7 +48,9 @@ export class SourceResolver {
   constructor(private adapters: ProviderAdapter[], private timeoutMs = 6000, private retries = 1) {}
   getHealth(): ProviderReport[] { return [...this.health.values()]; }
   async search(query: string): Promise<TitleMatch[]> {
-    const responses = await Promise.allSettled(this.adapters.map((a) => bounded((s) => a.search(query, s), this.timeoutMs)));
+    const responses = await Promise.allSettled(this.adapters.map((a) =>
+      a.search ? bounded((s) => a.search!(query, s), a.timeoutMs ?? this.timeoutMs) : Promise.resolve([]),
+    ));
     return [...new Map(responses.flatMap((r) => r.status === "fulfilled" ? r.value : []).map((t) => [t.slug, t])).values()];
   }
   async resolve(title: TitleMatch): Promise<Resolution> {
