@@ -87,11 +87,11 @@ export function verifiedReuseLicence(value?: string): string | null {
   let url: URL;
   try { url = new URL(value); } catch { return null; }
   if (url.protocol !== "https:" || !["creativecommons.org", "www.creativecommons.org"].includes(url.hostname.toLowerCase())) return null;
-  const path = url.pathname.toLowerCase().replace(/\\/+$/, "");
+  const path = url.pathname.toLowerCase().split("?")[0].replace(/\/$/, "");
   if (path === "/publicdomain/zero/1.0" || path === "/publicdomain/mark/1.0") return "Creative Commons public-domain dedication — " + url.href;
-  const match = path.match(/^\\/licenses\\/(by|by-sa)\\/(\\d+(?:\\.\\d+)?)$/);
-  if (!match) return null;
-  return "Creative Commons " + (match[1] === "by-sa" ? "Attribution-ShareAlike" : "Attribution") + " " + match[2] + " — " + url.href;
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length !== 3 || parts[0] !== "licenses" || !["by", "by-sa"].includes(parts[1]) || !["1.0", "2.0", "2.5", "3.0", "4.0"].includes(parts[2])) return null;
+  return "Creative Commons " + (parts[1] === "by-sa" ? "Attribution-ShareAlike" : "Attribution") + " " + parts[2] + " — " + url.href;
 }
 function genresFor(subjects: string[], title: string) {
   const text = [...subjects, title].join(" ");
